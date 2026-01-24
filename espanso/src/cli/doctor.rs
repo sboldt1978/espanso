@@ -169,7 +169,10 @@ fn find_duplicate_triggers(paths: &[String]) -> BTreeMap<String, Vec<String>> {
         .collect()
 }
 
-fn report_missing_variables(matches: &[&Match], global_vars: &[&espanso_config::matches::Variable]) -> bool {
+fn report_missing_variables(
+    matches: &[&Match],
+    global_vars: &[&espanso_config::matches::Variable],
+) -> bool {
     let global_names: HashSet<&str> = global_vars.iter().map(|var| var.name.as_str()).collect();
     let mut has_errors = false;
 
