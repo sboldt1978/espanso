@@ -17,7 +17,7 @@
  * along with espanso.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use super::{MatchSet, MatchStore};
+use super::{MatchInfo, MatchSet, MatchStore};
 use crate::{
     counter::StructId,
     error::NonFatalErrorSet,
@@ -77,6 +77,22 @@ impl MatchStore for DefaultMatchStore {
 
     fn loaded_paths(&self) -> Vec<String> {
         self.groups.keys().cloned().collect()
+    }
+
+    fn query_with_sources(&'_ self, paths: &[String]) -> Vec<MatchInfo<'_>> {
+        let mut result = Vec::new();
+        let mut visited_paths = HashSet::new();
+        let mut visited_matches = HashSet::new();
+
+        query_matches_with_sources(
+            &self.groups,
+            &mut visited_paths,
+            &mut visited_matches,
+            &mut result,
+            paths,
+        );
+
+        result
     }
 }
 
@@ -145,6 +161,42 @@ fn query_matches_for_paths<'a>(
                     if !visited_global_vars.contains(&var.id) {
                         global_vars.push(var);
                         visited_global_vars.insert(var.id);
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn query_matches_with_sources<'a>(
+    groups: &'a HashMap<String, MatchGroup>,
+    visited_paths: &mut HashSet<String>,
+    visited_matches: &mut HashSet<StructId>,
+    result: &mut Vec<MatchInfo<'a>>,
+    paths: &[String],
+) {
+    for path in paths {
+        if !visited_paths.contains(path) {
+            visited_paths.insert(path.clone());
+
+            if let Some(group) = groups.get(path) {
+                // First process imports
+                query_matches_with_sources(
+                    groups,
+                    visited_paths,
+                    visited_matches,
+                    result,
+                    &group.imports,
+                );
+
+                // Then add matches from this group with source info
+                // We need to get the key from the groups map to have the correct lifetime
+                if let Some((source_file, _)) = groups.get_key_value(path) {
+                    for m in &group.matches {
+                        if !visited_matches.contains(&m.id) {
+                            result.push(MatchInfo { m, source_file });
+                            visited_matches.insert(m.id);
+                        }
                     }
                 }
             }
