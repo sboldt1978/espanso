@@ -28,7 +28,6 @@ pub mod daemon;
 pub mod doctor;
 pub mod edit;
 pub mod env_path;
-pub mod expand;
 pub mod launcher;
 pub mod log;
 pub mod match_cli;
