@@ -183,7 +183,7 @@ fn report_missing_variables(
             has_errors = true;
             let description = m
                 .cause_description()
-                .or_else(|| m.label.as_deref())
+                .or(m.label.as_deref())
                 .unwrap_or("(unnamed match)");
             eprintln!(
                 "ERROR: match '{}' references missing variables: {}",
@@ -278,7 +278,7 @@ fn report_missing_script_files(matches: &[&Match], paths: &Paths) -> bool {
                     has_errors = true;
                     let description = m
                         .cause_description()
-                        .or_else(|| m.label.as_deref())
+                        .or(m.label.as_deref())
                         .unwrap_or("(unnamed match)");
                     eprintln!(
                         "ERROR: script variable '{}' in match '{}' points to missing file: {}",
