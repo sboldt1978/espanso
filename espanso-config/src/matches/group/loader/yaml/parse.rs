@@ -112,6 +112,9 @@ pub struct YAMLMatch {
     pub label: Option<String>,
 
     #[serde(default)]
+    pub enabled: Option<bool>,
+
+    #[serde(default)]
     pub trigger: Option<String>,
 
     #[serde(default)]

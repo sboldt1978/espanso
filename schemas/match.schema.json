@@ -93,6 +93,11 @@
         "label": {
           "type": "string"
         },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether this match is active."
+        },
         "left_word": {
           "description": "The related properties, left_word: true and right_word: true, ensure a match will only occur at the beginning or end of words respectively, and not in the middle.",
           "type": "boolean"

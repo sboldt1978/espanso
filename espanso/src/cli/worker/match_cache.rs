@@ -179,6 +179,9 @@ impl espanso_engine::process::MatchResolver for CombinedMatchCache<'_> {
             .cache
             .values()
             .filter_map(|m| {
+                if !m.enabled {
+                    return None;
+                }
                 if let MatchCause::Trigger(trigger_cause) = &m.cause {
                     if trigger_cause.triggers.iter().any(|t| t == trigger) {
                         Some(DetectedMatch {

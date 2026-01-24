@@ -61,6 +61,7 @@ pub struct Match {
     // Metadata
     pub label: Option<String>,
     pub search_terms: Vec<String>,
+    pub enabled: bool,
 }
 
 impl Default for Match {
@@ -71,6 +72,7 @@ impl Default for Match {
             label: None,
             id: 0,
             search_terms: vec![],
+            enabled: true,
         }
     }
 }
