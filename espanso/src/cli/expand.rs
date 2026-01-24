@@ -17,14 +17,13 @@
  * along with espanso.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context as AnyhowContext, Result};
 use espanso_config::{
-    config::{AppProperties, ConfigStore},
+    config::AppProperties,
     matches::{Match, MatchCause, MatchEffect, UpperCasingStyle},
 };
-use espanso_render::{CasingStyle, Context, RenderOptions, Template, Value, Variable};
-
-use crate::path::Paths;
+use espanso_render::Renderer;
+use espanso_render::{CasingStyle, Context as RenderContext, RenderOptions, Template, Variable};
 
 use super::{CliModule, CliModuleArgs};
 
@@ -89,17 +88,34 @@ fn expand_main_result(args: CliModuleArgs) -> Result<()> {
     let global_vars: Vec<Variable> = match_set
         .global_vars
         .iter()
-        .cloned()
+        .copied()
         .map(convert_var)
         .collect();
     let global_var_refs: Vec<&Variable> = global_vars.iter().collect();
 
-    let context = Context {
+    let context = RenderContext {
         global_vars: global_var_refs,
         templates: template_refs,
     };
 
-    let renderer = build_renderer(&paths)?;
+    let locale_provider = espanso_render::extension::date::DefaultLocaleProvider::new();
+    let date_extension = espanso_render::extension::date::DateExtension::new(&locale_provider);
+    let echo_extension = espanso_render::extension::echo::EchoExtension::new();
+    let random_extension = espanso_render::extension::random::RandomExtension::new();
+    let home_path = dirs::home_dir().context("unable to obtain home dir path")?;
+    let script_extension = espanso_render::extension::script::ScriptExtension::new(
+        &paths.config,
+        &home_path,
+        &paths.packages,
+    );
+    let shell_extension = espanso_render::extension::shell::ShellExtension::new(&paths.config);
+    let renderer = espanso_render::create(vec![
+        &date_extension,
+        &echo_extension,
+        &random_extension,
+        &script_extension,
+        &shell_extension,
+    ]);
 
     let template =
         convert_to_template(match_ref).context("match does not have a text effect to expand")?;
@@ -117,28 +133,6 @@ fn expand_main_result(args: CliModuleArgs) -> Result<()> {
     println!("{rendered}");
 
     Ok(())
-}
-
-fn build_renderer(paths: &Paths) -> Result<impl espanso_render::Renderer + '_> {
-    let locale_provider = espanso_render::extension::date::DefaultLocaleProvider::new();
-    let date_extension = espanso_render::extension::date::DateExtension::new(&locale_provider);
-    let echo_extension = espanso_render::extension::echo::EchoExtension::new();
-    let random_extension = espanso_render::extension::random::RandomExtension::new();
-    let home_path = dirs::home_dir().context("unable to obtain home dir path")?;
-    let script_extension = espanso_render::extension::script::ScriptExtension::new(
-        &paths.config,
-        &home_path,
-        &paths.packages,
-    );
-    let shell_extension = espanso_render::extension::shell::ShellExtension::new(&paths.config);
-
-    Ok(espanso_render::create(vec![
-        &date_extension,
-        &echo_extension,
-        &random_extension,
-        &script_extension,
-        &shell_extension,
-    ]))
 }
 
 fn matches_for_trigger<'a>(matches: &[&'a Match], trigger: &str) -> Vec<&'a Match> {
@@ -163,20 +157,20 @@ fn convert_to_template(m: &Match) -> Option<Template> {
         Some(Template {
             ids,
             body: text_effect.replace.clone(),
-            vars: text_effect.vars.iter().cloned().map(convert_var).collect(),
+            vars: text_effect.vars.iter().map(convert_var).collect(),
         })
     } else {
         None
     }
 }
 
-fn convert_var(var: espanso_config::matches::Variable) -> espanso_render::Variable {
+fn convert_var(var: &espanso_config::matches::Variable) -> espanso_render::Variable {
     Variable {
-        name: var.name,
-        var_type: var.var_type,
-        params: convert_params(var.params),
+        name: var.name.clone(),
+        var_type: var.var_type.clone(),
+        params: convert_params(var.params.clone()),
         inject_vars: var.inject_vars,
-        depends_on: var.depends_on,
+        depends_on: var.depends_on.clone(),
     }
 }
 
