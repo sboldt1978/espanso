@@ -63,6 +63,7 @@ static CLI_HANDLERS: LazyLock<Vec<CliModule>> = LazyLock::new(|| {
     vec![
         cli::path::new(),
         cli::edit::new(),
+        cli::doctor::new(),
         cli::launcher::new(),
         cli::log::new(),
         cli::stats::new(),
@@ -158,6 +159,7 @@ For example, specifying 'email' is equivalent to 'match/email.yml'."#))
     )
     .subcommand(SubCommand::with_name("launcher").setting(AppSettings::Hidden))
     .subcommand(SubCommand::with_name("log").about("Print the daemon logs."))
+    .subcommand(SubCommand::with_name("doctor").about("Validate configuration and report common issues."))
     .subcommand(
       SubCommand::with_name("stats")
         .about("Show expansion statistics")

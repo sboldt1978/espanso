@@ -25,6 +25,7 @@ use espanso_config::{config::ConfigStore, error::NonFatalErrorSet, matches::stor
 
 pub mod cmd;
 pub mod daemon;
+pub mod doctor;
 pub mod edit;
 pub mod env_path;
 pub mod launcher;
