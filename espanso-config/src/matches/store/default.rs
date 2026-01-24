@@ -234,11 +234,15 @@ mod tests {
     fn duplicate_triggers_detected_across_groups() {
         let mut groups = HashMap::new();
 
-        let mut first_group = MatchGroup::default();
-        first_group.matches = create_matches(&[("hello", "world")]);
+        let first_group = MatchGroup {
+            matches: create_matches(&[("hello", "world")]),
+            ..Default::default()
+        };
 
-        let mut second_group = MatchGroup::default();
-        second_group.matches = create_matches(&[("hello", "planet"), ("bye", "now")]);
+        let second_group = MatchGroup {
+            matches: create_matches(&[("hello", "planet"), ("bye", "now")]),
+            ..Default::default()
+        };
 
         groups.insert("base.yml".to_string(), first_group);
         groups.insert("other.yml".to_string(), second_group);
