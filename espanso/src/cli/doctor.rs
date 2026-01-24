@@ -25,20 +25,14 @@
 //! ERROR: script variable 'run' in match ':deploy' points to missing file: /path/to/script.sh
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
-use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
-
-use regex::Regex;
+use std::path::PathBuf;
 
 use super::{CliModule, CliModuleArgs};
 use crate::path::Paths;
 use espanso_config::{
     error::ErrorLevel,
-    matches::{group::loader::yaml::parse::YAMLMatchGroup, Match, MatchCause, MatchEffect, Value},
+    matches::{read_match_group_triggers, Match, MatchEffect, Value},
 };
-
-static VAR_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\{\{\s*(?P<name>\w+)(?:\.\w+)?\s*\}\}").unwrap());
 
 pub fn new() -> CliModule {
     CliModule {
@@ -133,26 +127,9 @@ fn find_duplicate_triggers(paths: &[String]) -> BTreeMap<String, Vec<String>> {
     let mut triggers: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
 
     for path in paths {
-        if let Ok(group) = YAMLMatchGroup::parse_from_file(Path::new(path)) {
-            for yaml_match in group.matches.unwrap_or_default() {
-                let mut match_triggers = Vec::new();
-                if let Some(trigger) = yaml_match.trigger {
-                    match_triggers.push(trigger);
-                }
-                if let Some(triggers) = yaml_match.triggers {
-                    match_triggers.extend(triggers);
-                }
-
-                for trigger in match_triggers {
-                    let trimmed = trigger.trim();
-                    if trimmed.is_empty() {
-                        continue;
-                    }
-                    triggers
-                        .entry(trimmed.to_string())
-                        .or_default()
-                        .insert(path.clone());
-                }
+        if let Ok(triggers_for_file) = read_match_group_triggers(PathBuf::from(path).as_path()) {
+            for trigger in triggers_for_file {
+                triggers.entry(trigger).or_default().insert(path.clone());
             }
         }
     }
@@ -195,7 +172,7 @@ fn report_missing_variables(
         }
 
         for var in match_vars {
-            for name in extract_variable_names_from_value(&var.params) {
+            for name in extract_variable_names_from_params(&var.params) {
                 if !available.contains(name.as_str()) {
                     missing.insert(name);
                 }
@@ -225,12 +202,40 @@ fn report_missing_variables(
 
 fn extract_variable_names(body: &str) -> HashSet<String> {
     let mut variables = HashSet::new();
-    for caps in VAR_REGEX.captures_iter(body) {
-        if let Some(name) = caps.name("name") {
-            variables.insert(name.as_str().to_string());
+    let mut remaining = body;
+
+    while let Some(start) = remaining.find("{{") {
+        let after_start = &remaining[start + 2..];
+        let Some(end) = after_start.find("}}") else {
+            break;
+        };
+
+        let candidate = after_start[..end].trim();
+        let candidate = candidate.trim_start_matches('\u{feff}');
+        let candidate = candidate.strip_prefix('\\').unwrap_or(candidate);
+        let name = candidate
+            .split_whitespace()
+            .next()
+            .unwrap_or("")
+            .split('.')
+            .next()
+            .unwrap_or("");
+
+        if !name.is_empty() {
+            variables.insert(name.to_string());
         }
+
+        remaining = &after_start[end + 2..];
     }
+
     variables
+}
+
+fn extract_variable_names_from_params(params: &espanso_config::matches::Params) -> HashSet<String> {
+    params
+        .values()
+        .flat_map(extract_variable_names_from_value)
+        .collect()
 }
 
 fn extract_variable_names_from_value(value: &Value) -> HashSet<String> {

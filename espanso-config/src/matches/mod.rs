@@ -20,11 +20,36 @@
 use enum_as_inner::EnumAsInner;
 use ordered_float::OrderedFloat;
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use crate::counter::StructId;
 
 pub(crate) mod group;
 pub mod store;
+
+pub fn read_match_group_triggers(path: &Path) -> anyhow::Result<Vec<String>> {
+    let yaml_group = group::loader::yaml::parse::YAMLMatchGroup::parse_from_file(path)?;
+    let mut triggers = Vec::new();
+
+    for yaml_match in yaml_group.matches.unwrap_or_default() {
+        if let Some(trigger) = yaml_match.trigger {
+            let trimmed = trigger.trim();
+            if !trimmed.is_empty() {
+                triggers.push(trimmed.to_string());
+            }
+        }
+        if let Some(additional) = yaml_match.triggers {
+            for trigger in additional {
+                let trimmed = trigger.trim();
+                if !trimmed.is_empty() {
+                    triggers.push(trimmed.to_string());
+                }
+            }
+        }
+    }
+
+    Ok(triggers)
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Match {
