@@ -28,14 +28,20 @@
 //!
 //! ## Export Examples
 //!
-//! Export all data:
+//! Export all data to a file:
+//! ```bash
+//! espanso export -f backup.espanso
+//! espanso export --file backup.espanso
+//! ```
+//!
+//! Export all data to stdout:
 //! ```bash
 //! espanso export > backup.txt
 //! ```
 //!
 //! Export specific scopes:
 //! ```bash
-//! espanso export --scope config,matches > backup.txt
+//! espanso export -f backup.espanso --scope config,matches
 //! espanso export --scope packages > packages-only.txt
 //! ```
 //!
@@ -46,7 +52,13 @@
 //!
 //! ## Import Examples
 //!
-//! Import data (interactive - prompts for confirmation):
+//! Import data from a file:
+//! ```bash
+//! espanso import -f backup.espanso
+//! espanso import --file backup.espanso --yes
+//! ```
+//!
+//! Import data from stdin (interactive - prompts for confirmation):
 //! ```bash
 //! espanso import < backup.txt
 //! ```
@@ -58,6 +70,7 @@
 //!
 //! Import specific scopes:
 //! ```bash
+//! espanso import -f backup.espanso --scope config
 //! espanso import --scope config < config-backup.txt
 //! ```
 //!
@@ -403,7 +416,15 @@ fn export_main(args: CliModuleArgs) -> i32 {
         }
     };
 
-    if let Err(err) = export_payload_to_stdout(&paths, scope_selection, wrap) {
+    let file_path = sub_args.value_of("file");
+
+    let result = if let Some(path) = file_path {
+        export_payload_to_file(&paths, scope_selection, wrap, Path::new(path))
+    } else {
+        export_payload_to_stdout(&paths, scope_selection, wrap)
+    };
+
+    if let Err(err) = result {
         error_eprintln!("unable to export: {err}");
         return 1;
     }
@@ -443,13 +464,20 @@ fn import_main(args: CliModuleArgs) -> i32 {
 
     let convert_lb = sub_args.is_present("convert-lb");
     let skip_confirmation = sub_args.is_present("yes");
+    let file_path = sub_args.value_of("file");
 
     if let Err(err) = confirm_import(skip_confirmation) {
         error_eprintln!("{err}");
         return 1;
     }
 
-    if let Err(err) = import_payload_from_stdin(&paths, scope_selection, convert_lb) {
+    let result = if let Some(path) = file_path {
+        import_payload_from_file(&paths, scope_selection, convert_lb, Path::new(path))
+    } else {
+        import_payload_from_stdin(&paths, scope_selection, convert_lb)
+    };
+
+    if let Err(err) = result {
         error_eprintln!("unable to import: {err}");
         return 1;
     }
@@ -576,6 +604,31 @@ fn export_payload_to_stdout(
     let mut encoder = gzip.finish()?;
     let mut handle = encoder.finish()?;
     handle.write_all(b"\n")?;
+    Ok(())
+}
+
+fn export_payload_to_file(
+    paths: &Paths,
+    selection: ScopeSelection,
+    wrap: Option<usize>,
+    file_path: &Path,
+) -> Result<()> {
+    let file = fs::File::create(file_path)
+        .with_context(|| format!("failed to create file: {}", file_path.display()))?;
+    let writer: Box<dyn Write> = if let Some(width) = wrap {
+        Box::new(WrapWriter::new(file, width))
+    } else {
+        Box::new(file)
+    };
+    let encoder = EncoderWriter::new(writer, &STANDARD);
+    let mut gzip = GzEncoder::new(encoder, Compression::default());
+
+    build_archive(&mut gzip, paths, selection)?;
+
+    let mut encoder = gzip.finish()?;
+    let mut handle = encoder.finish()?;
+    handle.write_all(b"\n")?;
+    eprintln!("Export saved to: {}", file_path.display());
     Ok(())
 }
 
@@ -906,6 +959,93 @@ fn import_payload_from_stdin(
     }
 
     // Import complete - espanso service will auto-detect config changes
+    Ok(())
+}
+
+fn import_payload_from_file(
+    paths: &Paths,
+    selection: ScopeSelection,
+    convert_lb: bool,
+    file_path: &Path,
+) -> Result<()> {
+    let input = fs::read_to_string(file_path)
+        .with_context(|| format!("failed to read file: {}", file_path.display()))?;
+
+    // Remove all whitespace from base64 input
+    let filtered: String = input.chars().filter(|c| !c.is_whitespace()).collect();
+
+    let decoder = DecoderReader::new(filtered.as_bytes(), &STANDARD);
+    let gzip = GzDecoder::new(decoder);
+    let mut archive = Archive::new(gzip);
+
+    prepare_import_targets(paths, selection)?;
+
+    for entry in archive.entries()? {
+        let mut entry = entry.context("failed to get archive entry")?;
+        let entry_path = entry
+            .path()
+            .context("failed to read entry path")?
+            .to_path_buf();
+        let normalized = sanitize_relative_path(&entry_path)
+            .with_context(|| format!("invalid path in archive: {}", entry_path.display()))?;
+        let (scope, scope_relative) = split_scope_path(&normalized)
+            .with_context(|| format!("invalid scope in path: {}", entry_path.display()))?;
+
+        if !selection.includes(scope) {
+            continue;
+        }
+
+        let target_root = scope_root(paths, scope);
+        let target_path = target_root.join(&scope_relative);
+        ensure_inside_root(&target_root, &target_path)
+            .with_context(|| format!("path escapes target directory: {}", entry_path.display()))?;
+
+        match entry.header().entry_type() {
+            EntryType::Directory => {
+                fs::create_dir_all(&target_path).with_context(|| {
+                    format!("failed to create directory: {}", target_path.display())
+                })?;
+            }
+            EntryType::Regular => {
+                // Ensure parent directory exists before writing file
+                if let Some(parent) = target_path.parent() {
+                    fs::create_dir_all(parent).with_context(|| {
+                        format!("failed to create parent directory: {}", parent.display())
+                    })?;
+                }
+                let mut data = Vec::new();
+                let bytes_read = entry.read_to_end(&mut data).with_context(|| {
+                    format!(
+                        "failed to read {} bytes from archive entry: {}",
+                        entry.size(),
+                        entry_path.display()
+                    )
+                })?;
+
+                if bytes_read != entry.size() as usize {
+                    bail!(
+                        "incomplete read: expected {} bytes, got {} bytes for {}",
+                        entry.size(),
+                        bytes_read,
+                        entry_path.display()
+                    );
+                }
+
+                let data = maybe_convert_line_breaks(&target_path, data, convert_lb)?;
+                write_atomic(&target_path, &data)
+                    .with_context(|| format!("failed to import file: {}", target_path.display()))?;
+            }
+            _ => {
+                bail!(
+                    "unsupported archive entry type {:?} for {}",
+                    entry.header().entry_type(),
+                    entry_path.display()
+                );
+            }
+        }
+    }
+
+    eprintln!("Import complete from: {}", file_path.display());
     Ok(())
 }
 
