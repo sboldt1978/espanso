@@ -246,7 +246,10 @@ mod tests {
         let duplicates = find_duplicate_triggers(&groups);
         let paths = duplicates.get("hello").expect("expected duplicate trigger");
 
-        assert_eq!(paths, &vec!["base.yml".to_string(), "other.yml".to_string()]);
+        assert_eq!(
+            paths,
+            &vec!["base.yml".to_string(), "other.yml".to_string()]
+        );
         assert!(!duplicates.contains_key("bye"));
     }
 
