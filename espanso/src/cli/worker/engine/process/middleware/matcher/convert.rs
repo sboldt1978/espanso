@@ -59,6 +59,9 @@ impl<'a> MatchConverter<'a> {
 
         // First convert configuration (user-defined) matches
         for m in match_set.matches {
+            if !m.enabled {
+                continue;
+            }
             if let MatchCause::Trigger(cause) = &m.cause {
                 for trigger in &cause.triggers {
                     matches.push(RollingMatch::from_string(
@@ -94,6 +97,9 @@ impl<'a> MatchConverter<'a> {
         let mut matches = Vec::new();
 
         for m in match_set.matches {
+            if !m.enabled {
+                continue;
+            }
             if let MatchCause::Regex(cause) = &m.cause {
                 matches.push(RegexMatch::new(m.id, &cause.regex));
             }
