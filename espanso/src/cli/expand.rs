@@ -101,8 +101,8 @@ fn expand_main_result(args: CliModuleArgs) -> Result<()> {
 
     let renderer = build_renderer(&paths)?;
 
-    let template = convert_to_template(match_ref)
-        .context("match does not have a text effect to expand")?;
+    let template =
+        convert_to_template(match_ref).context("match does not have a text effect to expand")?;
 
     let options = RenderOptions {
         casing_style: calculate_casing_style(match_ref, trigger),
