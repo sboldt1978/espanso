@@ -25,7 +25,7 @@ use crate::{
 };
 use anyhow::Context;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     path::PathBuf,
 };
 
@@ -42,6 +42,7 @@ impl DefaultMatchStore {
         // we have to load them recursively starting from the
         // top-level ones.
         load_match_groups_recursively(&mut groups, paths, &mut non_fatal_error_sets);
+        warn_duplicate_triggers(&groups);
 
         (Self { groups }, non_fatal_error_sets)
     }
@@ -147,6 +148,46 @@ fn query_matches_for_paths<'a>(
     }
 }
 
+fn warn_duplicate_triggers(groups: &HashMap<String, MatchGroup>) {
+    let duplicates = find_duplicate_triggers(groups);
+
+    for (trigger, paths) in duplicates {
+        eprintln!(
+            "warning: duplicate trigger '{}' found in: {}",
+            trigger,
+            paths.join(", ")
+        );
+    }
+}
+
+fn find_duplicate_triggers(groups: &HashMap<String, MatchGroup>) -> BTreeMap<String, Vec<String>> {
+    let mut triggers: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+
+    for (path, group) in groups {
+        for m in &group.matches {
+            if let crate::matches::MatchCause::Trigger(cause) = &m.cause {
+                for trigger in &cause.triggers {
+                    triggers
+                        .entry(trigger.clone())
+                        .or_default()
+                        .insert(path.clone());
+                }
+            }
+        }
+    }
+
+    triggers
+        .into_iter()
+        .filter_map(|(trigger, paths)| {
+            if paths.len() > 1 {
+                Some((trigger, paths.into_iter().collect()))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,6 +228,26 @@ mod tests {
 
     fn create_vars(vars: &[&str]) -> Vec<Variable> {
         vars.iter().map(|var| create_test_var(var)).collect()
+    }
+
+    #[test]
+    fn duplicate_triggers_detected_across_groups() {
+        let mut groups = HashMap::new();
+
+        let mut first_group = MatchGroup::default();
+        first_group.matches = create_matches(&[("hello", "world")]);
+
+        let mut second_group = MatchGroup::default();
+        second_group.matches = create_matches(&[("hello", "planet"), ("bye", "now")]);
+
+        groups.insert("base.yml".to_string(), first_group);
+        groups.insert("other.yml".to_string(), second_group);
+
+        let duplicates = find_duplicate_triggers(&groups);
+        let paths = duplicates.get("hello").expect("expected duplicate trigger");
+
+        assert_eq!(paths, &vec!["base.yml".to_string(), "other.yml".to_string()]);
+        assert!(!duplicates.contains_key("bye"));
     }
 
     #[test]
