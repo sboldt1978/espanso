@@ -64,6 +64,7 @@ static CLI_HANDLERS: LazyLock<Vec<CliModule>> = LazyLock::new(|| {
         cli::path::new(),
         cli::edit::new(),
         cli::doctor::new(),
+        cli::expand::new(),
         cli::launcher::new(),
         cli::log::new(),
         cli::stats::new(),
@@ -229,6 +230,40 @@ EXAMPLES:\n  \
             .takes_value(false)
             .help("Convert line breaks to LF for YAML files (.yml/.yaml) during import"),
         ),
+    )
+    .subcommand(
+      SubCommand::with_name("expand")
+        .about("Expand triggers in text and print the result. Input priority: stdin > file > argument.")
+        .arg(
+          Arg::with_name("text")
+            .multiple(true)
+            .help("Text containing triggers to expand (lowest priority)"),
+        )
+        .arg(
+          Arg::with_name("file")
+            .short('f')
+            .long("file")
+            .takes_value(true)
+            .help("Read input text from file"),
+        )
+        .arg(
+          Arg::with_name("class")
+            .long("class")
+            .takes_value(true)
+            .help("Simulate app class for context-aware matching"),
+        )
+        .arg(
+          Arg::with_name("title")
+            .long("title")
+            .takes_value(true)
+            .help("Simulate app title for context-aware matching"),
+        )
+        .arg(
+          Arg::with_name("exec")
+            .long("exec")
+            .takes_value(true)
+            .help("Simulate app executable for context-aware matching"),
+        )
     )
     .subcommand(
       SubCommand::with_name("stats")
