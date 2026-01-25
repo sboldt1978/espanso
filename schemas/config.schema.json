@@ -103,6 +103,16 @@
       "description": "If false, disable all notifications.",
       "type": "boolean"
     },
+    "open_file_menu": {
+      "description": "Settings for the tray menu Open file submenu.",
+      "type": "object",
+      "properties": {
+        "yaml_editor_path": {
+          "description": "Optional editor executable path to open YAML files from the menu.",
+          "type": "string"
+        }
+      }
+    },
     "toggle_key": {
       "description": "Defines the key that disables/enables espanso when double pressed.",
       "type": "string",

@@ -306,6 +306,10 @@ impl Config for ResolvedConfig {
         self.parsed.secure_input_notification.unwrap_or(true)
     }
 
+    fn yaml_editor_path(&self) -> Option<String> {
+        self.parsed.yaml_editor_path.clone()
+    }
+
     fn stats_enabled(&self) -> bool {
         self.parsed.stats_enabled.unwrap_or(false)
     }
@@ -445,6 +449,7 @@ impl ResolvedConfig {
             show_icon,
             show_notifications,
             secure_input_notification,
+            yaml_editor_path,
             emulate_alt_codes,
             post_form_delay,
             max_form_width,
