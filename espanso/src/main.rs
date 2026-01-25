@@ -233,11 +233,32 @@ EXAMPLES:\n  \
     )
     .subcommand(
       SubCommand::with_name("expand")
-        .about("Expand triggers in text and print the result. Input priority: stdin > file > argument.")
+        .about("Expand triggers in text and print the result")
+        .long_about(
+"Expand triggers in text and print the result.
+
+Input is read with the following priority:
+  1. stdin (highest) - if data is piped in
+  2. file (-f/--file) - if specified
+  3. argument (lowest) - text after the command
+
+EXAMPLES:
+  # Via stdin pipe (highest priority)
+  echo \"Hello :date\" | espanso expand
+  cat template.txt | espanso expand
+
+  # Via file
+  espanso expand -f template.txt
+  espanso expand --file /path/to/template.txt
+
+  # Via command argument (lowest priority)
+  espanso expand \"Hello :date\"
+  espanso expand 'Signature:\\n:sig'"
+        )
         .arg(
           Arg::with_name("text")
             .multiple(true)
-            .help("Text containing triggers to expand (lowest priority)"),
+            .help("Text containing triggers to expand"),
         )
         .arg(
           Arg::with_name("file")
