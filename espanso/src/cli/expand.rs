@@ -20,10 +20,7 @@
 use std::io::{self, IsTerminal, Read};
 
 use anyhow::{bail, Context, Result};
-use espanso_config::{
-    config::AppProperties,
-    matches::{Match, MatchCause, MatchEffect, UpperCasingStyle},
-};
+use espanso_config::matches::{Match, MatchCause, MatchEffect, UpperCasingStyle};
 use espanso_render::Renderer;
 use espanso_render::{CasingStyle, Context as RenderContext, RenderOptions, Template, Variable};
 
@@ -62,12 +59,8 @@ fn expand_main_result(args: CliModuleArgs) -> Result<()> {
         bail!("no input text provided. Use: stdin pipe, -f/--file, or text argument");
     }
 
-    // Get optional context filters
-    let class = cli_args.value_of("class");
-    let title = cli_args.value_of("title");
-    let exec = cli_args.value_of("exec");
-
-    let config = config_store.active(&AppProperties { title, class, exec });
+    // Use default config (no app context simulation)
+    let config = config_store.default();
     let match_set = match_store.query(config.match_paths());
 
     // Build trigger map for efficient lookup

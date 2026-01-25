@@ -246,24 +246,6 @@ EXAMPLES:\n  \
             .takes_value(true)
             .help("Read input text from file"),
         )
-        .arg(
-          Arg::with_name("class")
-            .long("class")
-            .takes_value(true)
-            .help("Simulate app class for context-aware matching"),
-        )
-        .arg(
-          Arg::with_name("title")
-            .long("title")
-            .takes_value(true)
-            .help("Simulate app title for context-aware matching"),
-        )
-        .arg(
-          Arg::with_name("exec")
-            .long("exec")
-            .takes_value(true)
-            .help("Simulate app executable for context-aware matching"),
-        )
     )
     .subcommand(
       SubCommand::with_name("stats")
