@@ -50,6 +50,7 @@ use crate::{
                 },
                 multiplex::MultiplexAdapter,
                 open_config::ConfigPathProviderAdapter,
+                open_file_menu::OpenFileMenuProviderAdapter,
                 render::{
                     extension::{
                         choice::ChoiceSelectorAdapter, clipboard::ClipboardAdapter,
@@ -226,6 +227,8 @@ pub fn initialize_and_spawn(
             let renderer_adapter = RendererAdapter::new(&match_cache, &config_manager, &renderer);
             let path_provider = PathProviderAdapter::new(&paths);
             let config_path_provider = ConfigPathProviderAdapter::new(&paths);
+            let open_file_menu_provider =
+                OpenFileMenuProviderAdapter::new(&paths, config_manager.default());
 
             let disable_options =
                 process::middleware::disable::extract_disable_options(&*config_manager.default());
@@ -243,6 +246,7 @@ pub fn initialize_and_spawn(
                 &sequencer,
                 &path_provider,
                 &config_path_provider,
+                &open_file_menu_provider,
                 disable_options,
                 &config_manager,
                 &combined_match_cache,
