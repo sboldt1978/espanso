@@ -103,42 +103,60 @@ impl Middleware for ContextMenuMiddleware<'_> {
                 }
 
                 let mut items = vec![
-                    MenuItem::Sub(SubMenuItem {
-                        label: "Open file".to_string(),
-                        items: open_file_menu.items,
-                    }),
                     MenuItem::Simple(if *is_enabled {
                         SimpleMenuItem {
                             id: CONTEXT_ITEM_DISABLE,
                             label: "Disable".to_string(),
+                            enabled: true,
                         }
                     } else {
                         SimpleMenuItem {
                             id: CONTEXT_ITEM_ENABLE,
                             label: "Enable".to_string(),
+                            enabled: true,
                         }
                     }),
                     MenuItem::Simple(SimpleMenuItem {
                         id: CONTEXT_ITEM_OPEN_SEARCH,
                         label: "Open search bar".to_string(),
+                        enabled: true,
                     }),
                     MenuItem::Separator,
                     MenuItem::Simple(SimpleMenuItem {
                         id: CONTEXT_ITEM_RELOAD,
                         label: "Reload config".to_string(),
+                        enabled: true,
                     }),
                     MenuItem::Simple(SimpleMenuItem {
                         id: CONTEXT_ITEM_OPEN_CONFIG_FOLDER,
                         label: "Open config folder".to_string(),
+                        enabled: true,
+                    }),
+                    MenuItem::Sub(SubMenuItem {
+                        label: "Edit config file".to_string(),
+                        items: open_file_menu.items,
                     }),
                     MenuItem::Simple(SimpleMenuItem {
                         id: CONTEXT_ITEM_SHOW_LOGS,
                         label: "Show logs".to_string(),
+                        enabled: true,
+                    }),
+                    MenuItem::Separator,
+                    MenuItem::Simple(SimpleMenuItem {
+                        id: CONTEXT_ITEM_EXPORT_CONFIG,
+                        label: "Export config".to_string(),
+                        enabled: true,
+                    }),
+                    MenuItem::Simple(SimpleMenuItem {
+                        id: CONTEXT_ITEM_IMPORT_CONFIG,
+                        label: "Import config".to_string(),
+                        enabled: true,
                     }),
                     MenuItem::Separator,
                     MenuItem::Simple(SimpleMenuItem {
                         id: CONTEXT_ITEM_EXIT,
                         label: "Exit espanso".to_string(),
+                        enabled: true,
                     }),
                 ];
 
@@ -148,6 +166,7 @@ impl Middleware for ContextMenuMiddleware<'_> {
                         MenuItem::Simple(SimpleMenuItem {
                             id: CONTEXT_ITEM_SECURE_INPUT_EXPLAIN,
                             label: "Why is Espanso not working?".to_string(),
+                            enabled: true,
                         }),
                     );
                     items.insert(
@@ -155,6 +174,7 @@ impl Middleware for ContextMenuMiddleware<'_> {
                         MenuItem::Simple(SimpleMenuItem {
                             id: CONTEXT_ITEM_SECURE_INPUT_TRIGGER_WORKAROUND,
                             label: "Launch SecureInput auto-fix".to_string(),
+                            enabled: true,
                         }),
                     );
                     items.insert(2, MenuItem::Separator);

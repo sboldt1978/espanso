@@ -116,12 +116,19 @@ void addSingleMenu(NSMenu * parent, id item)
 {
   id label = [item objectForKey:@"label"];
   id raw_id = [item objectForKey:@"id"];
+  id enabled = [item objectForKey:@"enabled"];
   if (label == nil || raw_id == nil)
   {
     return;
   }
-  NSMenuItem *newMenu = [[NSMenuItem alloc] initWithTitle:label action:@selector(contextMenuClick:) keyEquivalent:@""];
+  BOOL isEnabled = YES;
+  if (enabled != nil) {
+    isEnabled = [enabled boolValue];
+  }
+  SEL action = isEnabled ? @selector(contextMenuClick:) : nil;
+  NSMenuItem *newMenu = [[NSMenuItem alloc] initWithTitle:label action:action keyEquivalent:@""];
   [newMenu setTag:(NSInteger)raw_id];
+  [newMenu setEnabled:isEnabled];
   [parent addItem: newMenu]; 
 }
 
