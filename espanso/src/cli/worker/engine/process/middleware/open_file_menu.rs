@@ -128,7 +128,8 @@ impl OpenFileMenuProvider for OpenFileMenuProviderAdapter<'_> {
             items.push(espanso_engine::event::ui::MenuItem::Simple(
                 espanso_engine::event::ui::SimpleMenuItem {
                     id: id_gen.next_id(),
-                    label: "Recently opened (all)".to_string(),
+                    label: "Recently opened (All)".to_string(),
+                    enabled: false,
                 },
             ));
 
@@ -145,6 +146,7 @@ impl OpenFileMenuProvider for OpenFileMenuProviderAdapter<'_> {
                     espanso_engine::event::ui::SimpleMenuItem {
                         id,
                         label: entry.label,
+                        enabled: true,
                     },
                 ));
             }
@@ -316,6 +318,9 @@ fn read_tree(root: &Path, exclude: Option<&Path>) -> Vec<FileNode> {
         }
 
         let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') {
+            continue;
+        }
         if path.is_dir() {
             let children = read_tree(&path, exclude);
             if !children.is_empty() {
@@ -349,16 +354,11 @@ fn build_scope_menu(
     id_gen: &mut IdGenerator,
     item_map: &mut HashMap<u32, OpenFileMenuItem>,
 ) -> Vec<espanso_engine::event::ui::MenuItem> {
-    let mut items = build_tree_menu(entries, scope, id_gen, item_map);
+    let mut items = Vec::new();
+    let tree_items = build_tree_menu(entries, scope, id_gen, item_map);
 
     if !recent_entries.is_empty() {
-        items.push(espanso_engine::event::ui::MenuItem::Separator);
-        items.push(espanso_engine::event::ui::MenuItem::Simple(
-            espanso_engine::event::ui::SimpleMenuItem {
-                id: id_gen.next_id(),
-                label: "Recently opened".to_string(),
-            },
-        ));
+        let mut recent_items = Vec::new();
 
         for entry in recent_entries {
             let id = id_gen.next_id();
@@ -369,15 +369,28 @@ fn build_scope_menu(
                     scope,
                 },
             );
-            items.push(espanso_engine::event::ui::MenuItem::Simple(
+            recent_items.push(espanso_engine::event::ui::MenuItem::Simple(
                 espanso_engine::event::ui::SimpleMenuItem {
                     id,
                     label: entry.label.clone(),
+                    enabled: true,
                 },
             ));
         }
+
+        items.push(espanso_engine::event::ui::MenuItem::Sub(
+            espanso_engine::event::ui::SubMenuItem {
+                label: "Recently opened".to_string(),
+                items: recent_items,
+            },
+        ));
+
+        if !tree_items.is_empty() {
+            items.push(espanso_engine::event::ui::MenuItem::Separator);
+        }
     }
 
+    items.extend(tree_items);
     items
 }
 
@@ -415,6 +428,7 @@ fn build_tree_menu(
                     espanso_engine::event::ui::SimpleMenuItem {
                         id,
                         label: name.clone(),
+                        enabled: true,
                     },
                 ));
             }
@@ -439,6 +453,10 @@ fn collect_scope_recent(
 
         let path = PathBuf::from(entry);
         if !path.exists() {
+            continue;
+        }
+
+        if is_hidden_path(&path) {
             continue;
         }
 
@@ -470,12 +488,16 @@ fn collect_global_recent(
             continue;
         }
 
+        if is_hidden_path(&path) {
+            continue;
+        }
+
         let scope = if path.starts_with(&cache.config.root) {
             OpenFileMenuScope::Config
-        } else if path.starts_with(&cache.matches.root) {
-            OpenFileMenuScope::Matches
         } else if path.starts_with(&cache.packages.root) {
             OpenFileMenuScope::Packages
+        } else if path.starts_with(&cache.matches.root) {
+            OpenFileMenuScope::Matches
         } else {
             continue;
         };
@@ -507,6 +529,13 @@ fn scope_label(scope: OpenFileMenuScope) -> &'static str {
         OpenFileMenuScope::Matches => "Matches",
         OpenFileMenuScope::Packages => "Packages",
     }
+}
+
+fn is_hidden_path(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.starts_with('.'))
+        .unwrap_or(false)
 }
 
 fn load_recent_state(path: &Path) -> OpenFileRecentState {
