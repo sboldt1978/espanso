@@ -338,6 +338,15 @@ mod tests {
         fn secure_input_notification(&self) -> bool {
             true
         }
+        fn open_file_menu_recent_files_count(&self) -> usize {
+            10
+        }
+        fn open_file_menu_recent_files_per_scope_count(&self) -> usize {
+            10
+        }
+        fn open_file_menu_yaml_editor_path(&self) -> Option<String> {
+            None
+        }
         fn stats_enabled(&self) -> bool {
             true
         }
