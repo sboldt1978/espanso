@@ -56,6 +56,7 @@ fn convert_to_ui_menu_item(
             espanso_ui::menu::MenuItem::Simple(espanso_ui::menu::SimpleMenuItem {
                 id: simple.id,
                 label: simple.label.clone(),
+                enabled: simple.enabled,
             })
         }
         espanso_engine::event::ui::MenuItem::Sub(sub) => {

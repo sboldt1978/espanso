@@ -35,6 +35,9 @@ pub trait Processor {
 
 pub use middleware::action::{EventSequenceProvider, MatchInfoProvider};
 pub use middleware::alt_code_synthesizer::AltCodeSynthEnabledProvider;
+pub use middleware::context_menu::{
+    OpenFileMenuBuildResult, OpenFileMenuItem, OpenFileMenuProvider, OpenFileMenuScope,
+};
 pub use middleware::delay_modifiers::ModifierStatusProvider;
 pub use middleware::disable::DisableOptions;
 pub use middleware::image_resolve::PathProvider;
@@ -65,6 +68,7 @@ pub fn default<'a, MatcherState>(
     event_sequence_provider: &'a dyn EventSequenceProvider,
     path_provider: &'a dyn PathProvider,
     config_path_provider: &'a dyn ConfigPathProvider,
+    open_file_menu_provider: &'a dyn OpenFileMenuProvider,
     disable_options: DisableOptions,
     matcher_options_provider: &'a dyn MatcherMiddlewareConfigProvider,
     match_provider: &'a dyn MatchProvider,
@@ -86,6 +90,7 @@ pub fn default<'a, MatcherState>(
         event_sequence_provider,
         path_provider,
         config_path_provider,
+        open_file_menu_provider,
         disable_options,
         matcher_options_provider,
         match_provider,

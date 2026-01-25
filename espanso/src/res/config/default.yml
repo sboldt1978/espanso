@@ -49,4 +49,12 @@
 # at the cost of higher memory usage.
 # max_regex_buffer_size: 30
 
+# --- Open File Menu
+
+# Controls the tray menu "Open file" submenu and its recent list sizes.
+# open_file_menu:
+#   recent_files_count: 10
+#   recent_files_per_scope_count: 10
+#   yaml_editor_path: /path/to/editor
+
 # For a list of all the available options, visit the official docs at: https://espanso.org/docs/

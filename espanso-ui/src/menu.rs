@@ -44,6 +44,17 @@ pub enum MenuItem {
 pub struct SimpleMenuItem {
     pub id: u32,
     pub label: String,
+    #[serde(default = "default_enabled", skip_serializing_if = "is_enabled")]
+    pub enabled: bool,
+}
+
+fn default_enabled() -> bool {
+    true
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_enabled(value: &bool) -> bool {
+    *value
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -63,6 +74,7 @@ mod tests {
                 MenuItem::Simple(SimpleMenuItem {
                     id: 0,
                     label: "Open".to_string(),
+                    enabled: true,
                 }),
                 MenuItem::Separator,
                 MenuItem::Sub(SubMenuItem {
@@ -71,10 +83,12 @@ mod tests {
                         MenuItem::Simple(SimpleMenuItem {
                             label: "Sub 1".to_string(),
                             id: 1,
+                            enabled: true,
                         }),
                         MenuItem::Simple(SimpleMenuItem {
                             label: "Sub 2".to_string(),
                             id: 2,
+                            enabled: true,
                         }),
                     ],
                 }),

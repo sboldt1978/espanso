@@ -17,13 +17,15 @@
  * along with espanso.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::HashMap, path::PathBuf};
 
 use super::super::Middleware;
 use crate::event::{
-    ui::{MenuItem, ShowContextMenuEvent, SimpleMenuItem},
+    ui::{MenuItem, ShowContextMenuEvent, SimpleMenuItem, SubMenuItem},
     Event, EventType, ExitMode,
 };
+use anyhow::Result;
+use log::error;
 
 const CONTEXT_ITEM_EXIT: u32 = 0;
 const CONTEXT_ITEM_RELOAD: u32 = 1;
@@ -36,22 +38,50 @@ const CONTEXT_ITEM_SHOW_LOGS: u32 = 7;
 const CONTEXT_ITEM_OPEN_CONFIG_FOLDER: u32 = 8;
 const CONTEXT_ITEM_EXPORT_CONFIG: u32 = 9;
 const CONTEXT_ITEM_IMPORT_CONFIG: u32 = 10;
+const CONTEXT_ITEM_OPEN_FILE_START: u32 = 1000;
 
-pub struct ContextMenuMiddleware {
-    is_enabled: RefCell<bool>,
-    is_secure_input_enabled: RefCell<bool>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum OpenFileMenuScope {
+    Config,
+    Matches,
+    Packages,
 }
 
-impl ContextMenuMiddleware {
-    pub fn new() -> Self {
+#[derive(Debug, Clone)]
+pub struct OpenFileMenuItem {
+    pub path: PathBuf,
+    pub scope: OpenFileMenuScope,
+}
+
+pub struct OpenFileMenuBuildResult {
+    pub items: Vec<MenuItem>,
+    pub item_map: HashMap<u32, OpenFileMenuItem>,
+}
+
+pub trait OpenFileMenuProvider {
+    fn build_open_file_menu(&self, start_id: u32) -> OpenFileMenuBuildResult;
+    fn open_file(&self, item: &OpenFileMenuItem) -> Result<()>;
+}
+
+pub struct ContextMenuMiddleware<'a> {
+    is_enabled: RefCell<bool>,
+    is_secure_input_enabled: RefCell<bool>,
+    open_file_menu_provider: &'a dyn OpenFileMenuProvider,
+    open_file_item_map: RefCell<HashMap<u32, OpenFileMenuItem>>,
+}
+
+impl<'a> ContextMenuMiddleware<'a> {
+    pub fn new(open_file_menu_provider: &'a dyn OpenFileMenuProvider) -> Self {
         Self {
             is_enabled: RefCell::new(true),
             is_secure_input_enabled: RefCell::new(false),
+            open_file_menu_provider,
+            open_file_item_map: RefCell::new(HashMap::new()),
         }
     }
 }
 
-impl Middleware for ContextMenuMiddleware {
+impl Middleware for ContextMenuMiddleware<'_> {
     fn name(&self) -> &'static str {
         "context_menu"
     }
@@ -64,48 +94,69 @@ impl Middleware for ContextMenuMiddleware {
             EventType::TrayIconClicked => {
                 // TODO: fetch top matches for the active config to be added
 
+                let open_file_menu = self
+                    .open_file_menu_provider
+                    .build_open_file_menu(CONTEXT_ITEM_OPEN_FILE_START);
+                {
+                    let mut map = self.open_file_item_map.borrow_mut();
+                    *map = open_file_menu.item_map;
+                }
+
                 let mut items = vec![
                     MenuItem::Simple(if *is_enabled {
                         SimpleMenuItem {
                             id: CONTEXT_ITEM_DISABLE,
                             label: "Disable".to_string(),
+                            enabled: true,
                         }
                     } else {
                         SimpleMenuItem {
                             id: CONTEXT_ITEM_ENABLE,
                             label: "Enable".to_string(),
+                            enabled: true,
                         }
                     }),
                     MenuItem::Simple(SimpleMenuItem {
                         id: CONTEXT_ITEM_OPEN_SEARCH,
                         label: "Open search bar".to_string(),
+                        enabled: true,
                     }),
                     MenuItem::Separator,
                     MenuItem::Simple(SimpleMenuItem {
                         id: CONTEXT_ITEM_RELOAD,
                         label: "Reload config".to_string(),
+                        enabled: true,
                     }),
                     MenuItem::Simple(SimpleMenuItem {
                         id: CONTEXT_ITEM_OPEN_CONFIG_FOLDER,
                         label: "Open config folder".to_string(),
+                        enabled: true,
+                    }),
+                    MenuItem::Sub(SubMenuItem {
+                        label: "Edit config file".to_string(),
+                        items: open_file_menu.items,
                     }),
                     MenuItem::Simple(SimpleMenuItem {
                         id: CONTEXT_ITEM_SHOW_LOGS,
                         label: "Show logs".to_string(),
+                        enabled: true,
                     }),
                     MenuItem::Separator,
                     MenuItem::Simple(SimpleMenuItem {
                         id: CONTEXT_ITEM_EXPORT_CONFIG,
                         label: "Export config".to_string(),
+                        enabled: true,
                     }),
                     MenuItem::Simple(SimpleMenuItem {
                         id: CONTEXT_ITEM_IMPORT_CONFIG,
                         label: "Import config".to_string(),
+                        enabled: true,
                     }),
                     MenuItem::Separator,
                     MenuItem::Simple(SimpleMenuItem {
                         id: CONTEXT_ITEM_EXIT,
                         label: "Exit espanso".to_string(),
+                        enabled: true,
                     }),
                 ];
 
@@ -115,6 +166,7 @@ impl Middleware for ContextMenuMiddleware {
                         MenuItem::Simple(SimpleMenuItem {
                             id: CONTEXT_ITEM_SECURE_INPUT_EXPLAIN,
                             label: "Why is Espanso not working?".to_string(),
+                            enabled: true,
                         }),
                     );
                     items.insert(
@@ -122,6 +174,7 @@ impl Middleware for ContextMenuMiddleware {
                         MenuItem::Simple(SimpleMenuItem {
                             id: CONTEXT_ITEM_SECURE_INPUT_TRIGGER_WORKAROUND,
                             label: "Launch SecureInput auto-fix".to_string(),
+                            enabled: true,
                         }),
                     );
                     items.insert(2, MenuItem::Separator);
@@ -140,6 +193,18 @@ impl Middleware for ContextMenuMiddleware {
                 )
             }
             EventType::ContextMenuClicked(context_click_event) => {
+                if let Some(item) = self
+                    .open_file_item_map
+                    .borrow()
+                    .get(&context_click_event.context_item_id)
+                    .cloned()
+                {
+                    if let Err(err) = self.open_file_menu_provider.open_file(&item) {
+                        error!("unable to open file from menu: {err}");
+                    }
+                    return Event::caused_by(event.source_id, EventType::NOOP);
+                }
+
                 match context_click_event.context_item_id {
                     CONTEXT_ITEM_EXIT => Event::caused_by(
                         event.source_id,
@@ -194,10 +259,7 @@ impl Middleware for ContextMenuMiddleware {
                         dispatch(Event::caused_by(event.source_id, EventType::ImportConfig));
                         Event::caused_by(event.source_id, EventType::NOOP)
                     }
-                    11_u32..=u32::MAX => {
-                        // Should be unreachable, given there are no other options
-                        unreachable!()
-                    }
+                    _ => Event::caused_by(event.source_id, EventType::NOOP),
                 }
             }
             EventType::Disabled => {
