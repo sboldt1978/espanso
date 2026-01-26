@@ -234,7 +234,6 @@ mod tests {
             false
         }
     }
-
     #[test]
     fn load_group_invalid_format() {
         use_test_directory(|_, match_dir, _| {

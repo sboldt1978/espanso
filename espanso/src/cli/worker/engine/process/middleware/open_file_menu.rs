@@ -13,6 +13,7 @@ use espanso_engine::process::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::cli::util::open_file::open_file_with_preferred_editor;
 use crate::path::Paths;
 
 const RECENT_FILES_DB_NAME: &str = "open-file-recent.json";
@@ -156,20 +157,8 @@ impl OpenFileMenuProvider for OpenFileMenuProviderAdapter<'_> {
     }
 
     fn open_file(&self, item: &OpenFileMenuItem) -> Result<()> {
-        let editor_path = self
-            .config
-            .open_file_menu_yaml_editor_path()
-            .and_then(|path| (!path.trim().is_empty()).then_some(path));
-
-        if is_yaml_file(&item.path) {
-            if let Some(editor) = editor_path.as_deref() {
-                open_with_editor(editor, &item.path)?;
-            } else {
-                open_with_default_app(&item.path)?;
-            }
-        } else {
-            open_with_default_app(&item.path)?;
-        }
+        let editor_path = self.config.open_file_menu_yaml_editor_path();
+        open_file_with_preferred_editor(&item.path, editor_path.as_deref())?;
 
         let mut state = self.state.borrow_mut();
         let recent_state = state.recent_state_mut(self.recent_state_path());
@@ -587,48 +576,4 @@ fn push_recent(target: &mut Vec<String>, value: &str, limit: usize) {
     if target.len() > limit {
         target.truncate(limit);
     }
-}
-
-fn is_yaml_file(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("yml") || ext.eq_ignore_ascii_case("yaml"))
-}
-
-fn open_with_editor(editor: &str, file_path: &Path) -> Result<()> {
-    if cfg!(target_os = "windows") {
-        std::process::Command::new(editor)
-            .arg(file_path)
-            .spawn()
-            .context("spawn editor")?;
-    } else {
-        std::process::Command::new("/bin/bash")
-            .arg("-c")
-            .arg(format!("{} '{}'", editor, file_path.to_string_lossy()))
-            .spawn()
-            .context("spawn editor")?;
-    }
-
-    Ok(())
-}
-
-fn open_with_default_app(file_path: &Path) -> Result<()> {
-    if cfg!(target_os = "macos") {
-        std::process::Command::new("open")
-            .arg(file_path)
-            .spawn()
-            .context("spawn open")?;
-    } else if cfg!(target_os = "windows") {
-        let path_string = file_path.to_string_lossy();
-        std::process::Command::new("cmd")
-            .args(["/C", "start", "", path_string.as_ref()])
-            .spawn()
-            .context("spawn start")?;
-    } else {
-        std::process::Command::new("xdg-open")
-            .arg(file_path)
-            .spawn()
-            .context("spawn xdg-open")?;
-    }
-
-    Ok(())
 }

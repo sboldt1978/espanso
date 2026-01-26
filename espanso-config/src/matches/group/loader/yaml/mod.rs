@@ -670,7 +670,6 @@ mod tests {
         util::tests::use_test_directory,
     };
     use std::fs::create_dir_all;
-
     // MockConfig for testing triggermarker functionality
     struct MockConfig {
         triggermarker_prefix: Option<String>,
@@ -681,7 +680,6 @@ mod tests {
         triggermarker_smart_chars: Vec<String>,
         triggermarker_smart_remove_multiple: bool,
     }
-
     impl MockConfig {
         fn default() -> Self {
             Self {
@@ -851,7 +849,6 @@ mod tests {
             self.triggermarker_smart_remove_multiple
         }
     }
-
     fn create_match_with_warnings(
         yaml: &str,
         use_compatibility_mode: bool,

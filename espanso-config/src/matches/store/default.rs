@@ -254,10 +254,8 @@ mod tests {
         util::tests::use_test_directory,
     };
     use std::fs::create_dir_all;
-
     // MockConfig for testing
     struct MockConfig;
-
     impl crate::config::Config for MockConfig {
         fn id(&self) -> i32 {
             0
@@ -408,7 +406,6 @@ mod tests {
             false
         }
     }
-
     fn create_match(trigger: &str, replace: &str) -> Match {
         Match {
             cause: MatchCause::Trigger(TriggerCause {
