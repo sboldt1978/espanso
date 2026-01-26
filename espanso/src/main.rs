@@ -64,6 +64,7 @@ static CLI_HANDLERS: LazyLock<Vec<CliModule>> = LazyLock::new(|| {
         cli::path::new(),
         cli::edit::new(),
         cli::doctor::new(),
+        cli::expand::new(),
         cli::launcher::new(),
         cli::log::new(),
         cli::stats::new(),
@@ -229,6 +230,20 @@ EXAMPLES:\n  \
             .takes_value(false)
             .help("Convert line breaks to LF for YAML files (.yml/.yaml) during import"),
         ),
+    )
+    .subcommand(
+      SubCommand::with_name("expand")
+        .about("Expand a trigger and print the result")
+        .arg(
+          Arg::with_name("trigger")
+            .required(true)
+            .help("Trigger to expand"),
+        )
+        .arg(
+          Arg::with_name("dry-run")
+            .long("dry-run")
+            .help("Resolve the expansion without injecting into the OS"),
+        )
     )
     .subcommand(
       SubCommand::with_name("stats")
