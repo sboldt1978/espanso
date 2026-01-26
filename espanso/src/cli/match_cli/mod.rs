@@ -21,7 +21,6 @@ use super::{CliModule, CliModuleArgs};
 
 mod exec;
 mod expand;
-mod explain;
 mod list;
 
 pub fn new() -> CliModule {
@@ -48,11 +47,6 @@ fn match_main(args: CliModuleArgs) -> i32 {
     } else if let Some(sub_args) = cli_args.subcommand_matches("exec") {
         if let Err(err) = exec::exec_main(sub_args, &paths) {
             eprintln!("unable to exec match: {err:?}");
-            return 1;
-        }
-    } else if let Some(sub_args) = cli_args.subcommand_matches("explain") {
-        if let Err(err) = explain::explain_main(sub_args, config_store, match_store) {
-            eprintln!("unable to explain match: {err:?}");
             return 1;
         }
     } else if let Some(sub_args) = cli_args.subcommand_matches("expand") {
