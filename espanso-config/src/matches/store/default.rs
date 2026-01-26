@@ -204,6 +204,7 @@ fn query_matches_with_sources<'a>(
     }
 }
 
+#[allow(dead_code)]
 fn warn_duplicate_triggers(groups: &HashMap<String, MatchGroup>) {
     let duplicates = find_duplicate_triggers(groups);
 
@@ -216,6 +217,7 @@ fn warn_duplicate_triggers(groups: &HashMap<String, MatchGroup>) {
     }
 }
 
+#[allow(dead_code)]
 fn find_duplicate_triggers(groups: &HashMap<String, MatchGroup>) -> BTreeMap<String, Vec<String>> {
     let mut triggers: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
 
