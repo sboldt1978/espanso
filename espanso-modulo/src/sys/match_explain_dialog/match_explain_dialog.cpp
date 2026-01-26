@@ -207,8 +207,8 @@ void MatchExplainDialogFrame::OnTextUrl(wxTextUrlEvent &event) {
     const long start = event.GetURLStart();
     const long end = event.GetURLEnd();
     wxString path;
-    if (start >= 0 && end > start) {
-        path = output_box->GetValue().Mid(start, end - start);
+    if (start >= 0 && end >= start) {
+        path = output_box->GetValue().Mid(start, end - start + 1);
     }
     if (!path.IsEmpty()) {
         if (match_explain_metadata && match_explain_metadata->on_open_file) {
