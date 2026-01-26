@@ -21,7 +21,7 @@ use super::{CliModule, CliModuleArgs};
 
 mod exec;
 mod expand;
-mod explain;
+pub(crate) mod explain;
 mod list;
 
 pub fn new() -> CliModule {

@@ -38,6 +38,7 @@ const CONTEXT_ITEM_SHOW_LOGS: u32 = 7;
 const CONTEXT_ITEM_OPEN_CONFIG_FOLDER: u32 = 8;
 const CONTEXT_ITEM_EXPORT_CONFIG: u32 = 9;
 const CONTEXT_ITEM_IMPORT_CONFIG: u32 = 10;
+const CONTEXT_ITEM_EXPLAIN_MATCH: u32 = 11;
 const CONTEXT_ITEM_OPEN_FILE_START: u32 = 1000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -135,6 +136,11 @@ impl Middleware for ContextMenuMiddleware<'_> {
                     MenuItem::Sub(SubMenuItem {
                         label: "Edit config file".to_string(),
                         items: open_file_menu.items,
+                    }),
+                    MenuItem::Simple(SimpleMenuItem {
+                        id: CONTEXT_ITEM_EXPLAIN_MATCH,
+                        label: "Explain match".to_string(),
+                        enabled: true,
                     }),
                     MenuItem::Simple(SimpleMenuItem {
                         id: CONTEXT_ITEM_SHOW_LOGS,
@@ -257,6 +263,13 @@ impl Middleware for ContextMenuMiddleware<'_> {
                     }
                     CONTEXT_ITEM_IMPORT_CONFIG => {
                         dispatch(Event::caused_by(event.source_id, EventType::ImportConfig));
+                        Event::caused_by(event.source_id, EventType::NOOP)
+                    }
+                    CONTEXT_ITEM_EXPLAIN_MATCH => {
+                        dispatch(Event::caused_by(
+                            event.source_id,
+                            EventType::ShowMatchExplainDialog,
+                        ));
                         Event::caused_by(event.source_id, EventType::NOOP)
                     }
                     _ => Event::caused_by(event.source_id, EventType::NOOP),

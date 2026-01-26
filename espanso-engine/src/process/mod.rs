@@ -78,6 +78,7 @@ pub fn default<'a, MatcherState>(
     match_resolver: &'a dyn MatchResolver,
     notification_manager: &'a dyn NotificationManager,
     alt_code_synth_enabled_provider: &'a dyn AltCodeSynthEnabledProvider,
+    enabled_state: std::sync::Arc<std::sync::atomic::AtomicBool>,
 ) -> impl Processor + 'a {
     default::DefaultProcessor::new(
         matchers,
@@ -100,5 +101,6 @@ pub fn default<'a, MatcherState>(
         match_resolver,
         notification_manager,
         alt_code_synth_enabled_provider,
+        enabled_state,
     )
 }
