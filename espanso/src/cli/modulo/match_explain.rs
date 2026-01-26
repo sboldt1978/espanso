@@ -21,10 +21,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use clap::ArgMatches;
-use espanso_config::{
-    config::{AppProperties, ConfigStore},
-    matches::store::MatchStore,
-};
+use espanso_config::{config::AppProperties, config::ConfigStore, matches::store::MatchStore};
 use espanso_ipc::IPCClient;
 use log::warn;
 
@@ -160,7 +157,6 @@ pub fn match_explain_main(
     };
 
     let on_open_file = {
-        let config_store = Arc::clone(&config_store);
         move |path: &str| {
             if path.trim().is_empty() {
                 return;
