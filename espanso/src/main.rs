@@ -520,6 +520,27 @@ EXAMPLES:\n  \
                 .takes_value(true)
             )
         )
+        .subcommand(SubCommand::with_name("expand")
+            .about("Expand triggers in text and print the result.")
+            .long_about("Expand triggers in text and print the result.\n\n\
+Input priority: stdin > file > argument.\n\n\
+EXAMPLES:\n  \
+  echo \"Hello :name\" | espanso match expand\n  \
+  espanso match expand -f template.txt\n  \
+  espanso match expand \"Hello :name\"")
+            .arg(
+                Arg::with_name("text")
+                    .multiple(true)
+                    .help("Text containing triggers to expand (lowest priority)"),
+            )
+            .arg(
+                Arg::with_name("file")
+                    .short('f')
+                    .long("file")
+                    .takes_value(true)
+                    .help("Read input text from file"),
+            )
+        )
     )
     .subcommand(
       SubCommand::with_name("package")
