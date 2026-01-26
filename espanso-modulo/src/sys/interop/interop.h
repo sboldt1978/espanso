@@ -205,7 +205,7 @@ typedef struct ImportDialogMetadata {
 } ImportDialogMetadata;
 typedef struct MatchExplainDialogMetadata {
     const char *window_icon_path;
-    const char *(*on_check)(const char *trigger);
+    const char *(*on_check)(const char *trigger, int show_all, int json_output);
     void (*on_focus_gained)();
     void (*on_focus_lost)();
 } MatchExplainDialogMetadata;
