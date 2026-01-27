@@ -20,7 +20,7 @@
 use anyhow::{Context, Result};
 use clap::ArgMatches;
 use espanso_config::{
-    config::{AppProperties, Config, ConfigStore},
+    config::{AppProperties, ConfigStore},
     matches::{
         store::{MatchInfo, MatchStore},
         Match, MatchCause, MatchEffect, TextEffect, TextFormat, TextInjectMode, TriggerCause,
@@ -31,6 +31,7 @@ use espanso_render::{
     CasingStyle, Context as RenderContext, RenderOptions, RenderResult, Renderer, Template,
 };
 use serde::Serialize;
+use std::collections::HashMap;
 use std::fmt::Write;
 
 use crate::path::resolve_paths;
@@ -104,7 +105,7 @@ pub(crate) fn explain_output(
         }
 
         let mut output = String::new();
-        writeln!(output, "Trigger: \"{}\"", options.trigger)?;
+        writeln!(output, "Trigger entered: \"{}\"", options.trigger)?;
         writeln!(output)?;
         writeln!(output, "No matches found for this trigger.")?;
         return Ok(output);
@@ -114,6 +115,7 @@ pub(crate) fn explain_output(
 
     let paths = resolve_paths(None, None, None);
     let render_support = build_render_support(&match_set, &paths).ok();
+    let context = ExplainContext::new(&matches_with_sources);
 
     if options.json_output {
         render_json_output(
@@ -121,7 +123,7 @@ pub(crate) fn explain_output(
             &candidates,
             options.show_all,
             render_support.as_ref(),
-            config.as_ref(),
+            &context,
         )
     } else {
         let mut output = String::new();
@@ -131,7 +133,7 @@ pub(crate) fn explain_output(
             &candidates,
             options.show_all,
             render_support.as_ref(),
-            config.as_ref(),
+            &context,
         )?;
         Ok(output)
     }
@@ -154,18 +156,49 @@ struct MatchCandidate<'a> {
     is_selected: bool,
 }
 
+struct ExplainContext<'a> {
+    file_matches: HashMap<&'a str, Vec<&'a MatchInfo<'a>>>,
+    definitions: HashMap<String, Vec<TriggerDefinition>>,
+}
+
+impl<'a> ExplainContext<'a> {
+    fn new(matches_with_sources: &'a [MatchInfo<'a>]) -> Self {
+        let mut file_matches: HashMap<&str, Vec<&MatchInfo>> = HashMap::new();
+        for info in matches_with_sources {
+            file_matches.entry(info.source_file).or_default().push(info);
+        }
+
+        let definitions = file_matches
+            .keys()
+            .map(|path| (path.to_string(), parse_match_file(path)))
+            .collect();
+
+        Self {
+            file_matches,
+            definitions,
+        }
+    }
+
+    fn definition_for(&self, info: &MatchInfo) -> Option<&TriggerDefinition> {
+        let defs = self.definitions.get(info.source_file)?;
+        let matches = self.file_matches.get(info.source_file)?;
+        let index = matches.iter().position(|m| m.m.id == info.m.id)?;
+        defs.get(index)
+    }
+}
+
 fn render_human_output(
     output: &mut String,
     trigger: &str,
     candidates: &[MatchCandidate],
     show_all: bool,
     render_support: Option<&RenderSupport>,
-    config: &dyn Config,
+    context: &ExplainContext<'_>,
 ) -> std::fmt::Result {
-    let selected_definition = candidates.iter().find(|c| c.is_selected).and_then(|c| {
-        let canonical = canonical_triggers(c.info, config);
-        find_trigger_definition(c.info, &canonical, config)
-    });
+    let selected_definition = candidates
+        .iter()
+        .find(|c| c.is_selected)
+        .and_then(|c| context.definition_for(c.info));
 
     let display_trigger = selected_definition
         .as_ref()
@@ -178,7 +211,14 @@ fn render_human_output(
     // Print the selected match
     if let Some(selected) = candidates.iter().find(|c| c.is_selected) {
         writeln!(output, "Selected match:")?;
-        render_match_details(output, selected.info, trigger, "  ", render_support, config)?;
+        render_match_details(
+            output,
+            selected.info,
+            trigger,
+            "  ",
+            render_support,
+            context,
+        )?;
     }
 
     // Print other candidates if --all flag is set
@@ -194,7 +234,7 @@ fn render_human_output(
                 trigger,
                 "    ",
                 render_support,
-                config,
+                context,
             )?;
             writeln!(
                 output,
@@ -219,11 +259,10 @@ fn render_match_details(
     trigger: &str,
     indent: &str,
     render_support: Option<&RenderSupport>,
-    config: &dyn Config,
+    context: &ExplainContext<'_>,
 ) -> std::fmt::Result {
     let m = info.m;
-    let canonical = canonical_triggers(info, config);
-    let definition = find_trigger_definition(info, &canonical, config);
+    let definition = context.definition_for(info);
     let line_number = definition.as_ref().map(|def| def.line_number);
 
     if let Some(def) = &definition {
@@ -400,17 +439,17 @@ fn render_json_output(
     candidates: &[MatchCandidate],
     show_all: bool,
     render_support: Option<&RenderSupport>,
-    config: &dyn Config,
+    context: &ExplainContext<'_>,
 ) -> Result<String> {
     let selected = candidates.iter().find(|c| c.is_selected);
 
-    let selected_json = selected.map(|c| match_to_json(c, trigger, render_support, config));
+    let selected_json = selected.map(|c| match_to_json(c, trigger, render_support, context));
 
     let candidates_json: Vec<MatchDetailsJson> = if show_all {
         candidates
             .iter()
             .filter(|c| !c.is_selected)
-            .map(|c| match_to_json(c, trigger, render_support, config))
+            .map(|c| match_to_json(c, trigger, render_support, context))
             .collect()
     } else {
         vec![]
@@ -430,12 +469,11 @@ fn match_to_json(
     candidate: &MatchCandidate,
     trigger: &str,
     render_support: Option<&RenderSupport>,
-    config: &dyn Config,
+    context: &ExplainContext<'_>,
 ) -> MatchDetailsJson {
     let m = candidate.info.m;
 
-    let canonical = canonical_triggers(candidate.info, config);
-    let definition = find_trigger_definition(candidate.info, &canonical, config);
+    let definition = context.definition_for(candidate.info);
     let (cause_type, triggers, regex) = match &m.cause {
         MatchCause::Trigger(cause) => ("trigger".to_string(), Some(cause.triggers.clone()), None),
         MatchCause::Regex(cause) => ("regex".to_string(), None, Some(cause.regex.clone())),
@@ -551,11 +589,77 @@ fn render_current_output(support: &RenderSupport, m: &Match, trigger: &str) -> O
     }
 }
 
-fn canonical_triggers(info: &MatchInfo, _config: &dyn Config) -> Vec<String> {
-    match &info.m.cause {
-        MatchCause::Trigger(cause) => cause.triggers.clone(),
-        MatchCause::Regex(cause) => vec![cause.regex.clone()],
-        MatchCause::None => Vec::new(),
+fn parse_match_file(path: &str) -> Vec<TriggerDefinition> {
+    let contents = std::fs::read_to_string(path).unwrap_or_default();
+    let mut entries = Vec::new();
+    let mut pending: Option<(usize, Vec<String>)> = None;
+
+    for (index, line) in contents.lines().enumerate() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("- trigger:") || trimmed.starts_with("- regex:") {
+            finalize_pending(&mut entries, &mut pending);
+            let value = extract_trigger_value(trimmed);
+            entries.push(TriggerDefinition {
+                line_number: index + 1,
+                original_value: value,
+            });
+        } else if let Some(stripped) = trimmed.strip_prefix("- triggers:") {
+            finalize_pending(&mut entries, &mut pending);
+            let inline = stripped.trim();
+            let values = parse_inline_trigger_list(inline);
+            pending = Some((index + 1, values));
+        } else if let Some((_, ref mut values)) = pending {
+            if trimmed.starts_with('-') {
+                if let Some(value) = extract_trigger_value(trimmed) {
+                    values.push(value);
+                }
+            }
+        }
+    }
+
+    finalize_pending(&mut entries, &mut pending);
+    entries
+}
+
+fn finalize_pending(
+    entries: &mut Vec<TriggerDefinition>,
+    pending: &mut Option<(usize, Vec<String>)>,
+) {
+    if let Some((line_number, values)) = pending.take() {
+        let original_value = match values.len() {
+            0 => None,
+            1 => Some(values[0].clone()),
+            _ => Some(values.join(", ")),
+        };
+        entries.push(TriggerDefinition {
+            line_number,
+            original_value,
+        });
+    }
+}
+
+fn parse_inline_trigger_list(value: &str) -> Vec<String> {
+    let trimmed = value.trim();
+    if trimmed.starts_with('[') && trimmed.ends_with(']') {
+        trimmed[1..trimmed.len() - 1]
+            .split(',')
+            .filter_map(|part| {
+                let inner = part.trim();
+                let cleaned = inner
+                    .trim_start_matches('"')
+                    .trim_start_matches('\'')
+                    .trim_end_matches('"')
+                    .trim_end_matches('\'')
+                    .trim();
+                if cleaned.is_empty() {
+                    None
+                } else {
+                    Some(cleaned.to_string())
+                }
+            })
+            .collect()
+    } else {
+        Vec::new()
     }
 }
 
@@ -666,82 +770,6 @@ fn escape_for_display(value: &str) -> String {
 struct TriggerDefinition {
     line_number: usize,
     original_value: Option<String>,
-}
-
-fn find_trigger_definition(
-    info: &MatchInfo,
-    canonical: &[String],
-    config: &dyn Config,
-) -> Option<TriggerDefinition> {
-    let contents = std::fs::read_to_string(info.source_file).ok()?;
-    let trigger_values_vec: Vec<String> = if !canonical.is_empty() {
-        match_trigger_candidates(canonical, config)
-    } else {
-        match &info.m.cause {
-            MatchCause::Trigger(cause) => cause.triggers.clone(),
-            MatchCause::Regex(cause) => vec![cause.regex.clone()],
-            MatchCause::None => Vec::new(),
-        }
-    };
-    let trigger_values: Vec<&str> = trigger_values_vec.iter().map(String::as_str).collect();
-
-    if trigger_values.is_empty() {
-        return None;
-    }
-
-    fn match_trigger_candidates(canonical: &[String], config: &dyn Config) -> Vec<String> {
-        let mut candidates = Vec::new();
-        let prefix = config.triggermarker_prefix().unwrap_or_default();
-        let suffix = config.triggermarker_suffix().unwrap_or_default();
-
-        for trigger in canonical {
-            candidates.push(trigger.clone());
-            if let Some(stripped) = strip_triggermarker(trigger, &prefix, &suffix) {
-                if !stripped.is_empty() {
-                    candidates.push(stripped);
-                }
-            }
-        }
-
-        candidates.sort();
-        candidates.dedup();
-        candidates
-    }
-
-    fn strip_triggermarker(value: &str, prefix: &str, suffix: &str) -> Option<String> {
-        let mut stripped = value;
-        if !prefix.is_empty() && stripped.len() >= prefix.len() && stripped.starts_with(prefix) {
-            stripped = &stripped[prefix.len()..];
-        }
-        if !suffix.is_empty() && stripped.len() >= suffix.len() && stripped.ends_with(suffix) {
-            stripped = &stripped[..stripped.len() - suffix.len()];
-        }
-        if stripped == value {
-            None
-        } else {
-            Some(stripped.to_string())
-        }
-    }
-
-    for (index, line) in contents.lines().enumerate() {
-        let trimmed = line.trim_start();
-        let has_trigger = matches!(info.m.cause, MatchCause::Trigger(_))
-            && trigger_values.iter().any(|trigger| line.contains(trigger))
-            && (line.contains("trigger") || line.contains("triggers") || trimmed.starts_with('-'));
-        let has_regex = matches!(info.m.cause, MatchCause::Regex(_))
-            && trigger_values.iter().any(|pattern| line.contains(pattern))
-            && line.contains("regex");
-
-        if has_trigger || has_regex {
-            let line_number = index + 1;
-            let original_value = extract_trigger_value(trimmed);
-            return Some(TriggerDefinition {
-                line_number,
-                original_value,
-            });
-        }
-    }
-    None
 }
 
 fn extract_trigger_value(line: &str) -> Option<String> {
