@@ -162,14 +162,16 @@ fn render_human_output(
     render_support: Option<&RenderSupport>,
     config: &dyn Config,
 ) -> std::fmt::Result {
-    let selected_candidate = candidates.iter().find(|c| c.is_selected);
-    let canonical_trigger_value = selected_candidate
-        .map(|c| canonical_triggers(c.info, config))
-        .unwrap_or_else(|| Vec::new());
-    let display_trigger = canonical_trigger_value
-        .first()
-        .cloned()
+    let selected_definition = candidates.iter().find(|c| c.is_selected).and_then(|c| {
+        let canonical = canonical_triggers(c.info, config);
+        find_trigger_definition(c.info, &canonical, config)
+    });
+
+    let display_trigger = selected_definition
+        .as_ref()
+        .and_then(|def| def.original_value.clone())
         .unwrap_or_else(|| trigger.to_string());
+
     writeln!(output, "Trigger: \"{}\"", display_trigger)?;
     writeln!(output)?;
 
@@ -221,7 +223,18 @@ fn render_match_details(
 ) -> std::fmt::Result {
     let m = info.m;
     let canonical = canonical_triggers(info, config);
-    let line_number = find_line_number(info, &canonical);
+    let definition = find_trigger_definition(info, &canonical, config);
+    let line_number = definition.as_ref().map(|def| def.line_number);
+
+    if let Some(def) = &definition {
+        let display_trigger = def
+            .original_value
+            .clone()
+            .unwrap_or_else(|| trigger.to_string());
+        writeln!(output, "{}Trigger: {}", indent, display_trigger)?;
+    } else {
+        writeln!(output, "{}Trigger: {}", indent, trigger)?;
+    }
 
     writeln!(output, "{}Defined in: {}", indent, info.source_file)?;
     if let Some(line_number) = line_number {
@@ -422,6 +435,7 @@ fn match_to_json(
     let m = candidate.info.m;
 
     let canonical = canonical_triggers(candidate.info, config);
+    let definition = find_trigger_definition(candidate.info, &canonical, config);
     let (cause_type, triggers, regex) = match &m.cause {
         MatchCause::Trigger(cause) => ("trigger".to_string(), Some(cause.triggers.clone()), None),
         MatchCause::Regex(cause) => ("regex".to_string(), None, Some(cause.regex.clone())),
@@ -453,7 +467,7 @@ fn match_to_json(
 
     MatchDetailsJson {
         source_file: candidate.info.source_file.to_string(),
-        line_number: find_line_number(candidate.info, &canonical),
+        line_number: definition.as_ref().map(|def| def.line_number),
         match_id: m.id,
         label: m.label.clone(),
         cause_type,
@@ -649,20 +663,64 @@ fn escape_for_display(value: &str) -> String {
     value.replace('\n', "\\n").replace('\r', "\\r")
 }
 
-fn find_line_number(info: &MatchInfo, canonical: &[String]) -> Option<usize> {
+struct TriggerDefinition {
+    line_number: usize,
+    original_value: Option<String>,
+}
+
+fn find_trigger_definition(
+    info: &MatchInfo,
+    canonical: &[String],
+    config: &dyn Config,
+) -> Option<TriggerDefinition> {
     let contents = std::fs::read_to_string(info.source_file).ok()?;
-    let trigger_values: Vec<&str> = if !canonical.is_empty() {
-        canonical.iter().map(String::as_str).collect()
+    let trigger_values_vec: Vec<String> = if !canonical.is_empty() {
+        match_trigger_candidates(canonical, config)
     } else {
         match &info.m.cause {
-            MatchCause::Trigger(cause) => cause.triggers.iter().map(String::as_str).collect(),
-            MatchCause::Regex(cause) => vec![cause.regex.as_str()],
+            MatchCause::Trigger(cause) => cause.triggers.clone(),
+            MatchCause::Regex(cause) => vec![cause.regex.clone()],
             MatchCause::None => Vec::new(),
         }
     };
+    let trigger_values: Vec<&str> = trigger_values_vec.iter().map(String::as_str).collect();
 
     if trigger_values.is_empty() {
         return None;
+    }
+
+    fn match_trigger_candidates(canonical: &[String], config: &dyn Config) -> Vec<String> {
+        let mut candidates = Vec::new();
+        let prefix = config.triggermarker_prefix().unwrap_or_default();
+        let suffix = config.triggermarker_suffix().unwrap_or_default();
+
+        for trigger in canonical {
+            candidates.push(trigger.clone());
+            if let Some(stripped) = strip_triggermarker(trigger, &prefix, &suffix) {
+                if !stripped.is_empty() {
+                    candidates.push(stripped);
+                }
+            }
+        }
+
+        candidates.sort();
+        candidates.dedup();
+        candidates
+    }
+
+    fn strip_triggermarker(value: &str, prefix: &str, suffix: &str) -> Option<String> {
+        let mut stripped = value;
+        if !prefix.is_empty() && stripped.len() >= prefix.len() && stripped.starts_with(prefix) {
+            stripped = &stripped[prefix.len()..];
+        }
+        if !suffix.is_empty() && stripped.len() >= suffix.len() && stripped.ends_with(suffix) {
+            stripped = &stripped[..stripped.len() - suffix.len()];
+        }
+        if stripped == value {
+            None
+        } else {
+            Some(stripped.to_string())
+        }
     }
 
     for (index, line) in contents.lines().enumerate() {
@@ -675,8 +733,40 @@ fn find_line_number(info: &MatchInfo, canonical: &[String]) -> Option<usize> {
             && line.contains("regex");
 
         if has_trigger || has_regex {
-            return Some(index + 1);
+            let line_number = index + 1;
+            let original_value = extract_trigger_value(trimmed);
+            return Some(TriggerDefinition {
+                line_number,
+                original_value,
+            });
         }
     }
     None
+}
+
+fn extract_trigger_value(line: &str) -> Option<String> {
+    let colon_pos = line.find(':')?;
+    let mut value = line[colon_pos + 1..]
+        .split('#')
+        .next()?
+        .trim()
+        .trim_end_matches(',');
+
+    if value.starts_with('[') && value.ends_with(']') {
+        let inner = &value[1..value.len() - 1];
+        value = inner.trim();
+    }
+
+    if value.len() >= 2
+        && ((value.starts_with('"') && value.ends_with('"'))
+            || (value.starts_with('\'') && value.ends_with('\'')))
+    {
+        value = &value[1..value.len() - 1];
+    }
+
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.to_string())
+    }
 }
