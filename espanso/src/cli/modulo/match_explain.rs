@@ -121,7 +121,11 @@ pub fn match_explain_main(
     let on_check = {
         let config_store = Arc::clone(&config_store);
         let match_store = Arc::clone(&match_store);
-        move |trigger: &str, show_all: bool, json_output: bool| -> String {
+        move |trigger: &str,
+              show_all: bool,
+              json_output: bool,
+              escape_line_breaks: bool|
+              -> String {
             let config_store = match config_store.lock() {
                 Ok(store) => store,
                 Err(err) => {
@@ -139,6 +143,7 @@ pub fn match_explain_main(
                     trigger,
                     show_all,
                     json_output,
+                    escape_line_breaks,
                     app_properties: AppProperties {
                         title: None,
                         class: None,

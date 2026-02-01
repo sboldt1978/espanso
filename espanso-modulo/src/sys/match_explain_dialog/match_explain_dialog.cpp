@@ -54,6 +54,7 @@ class MatchExplainDialogFrame : public wxFrame {
     wxButton *check_all_button = nullptr;
     wxRichTextCtrl *output_box = nullptr;
     wxCheckBox *json_checkbox = nullptr;
+    wxCheckBox *escape_line_breaks_checkbox = nullptr;
     wxButton *copy_button = nullptr;
     wxButton *close_button = nullptr;
 
@@ -109,6 +110,11 @@ MatchExplainDialogFrame::MatchExplainDialogFrame()
     wxBoxSizer *bottom_sizer = new wxBoxSizer(wxHORIZONTAL);
     json_checkbox = new wxCheckBox(panel, wxID_ANY, "JSON output");
     bottom_sizer->Add(json_checkbox, 0, wxALIGN_CENTER_VERTICAL);
+    bottom_sizer->AddSpacer(12);
+    escape_line_breaks_checkbox =
+        new wxCheckBox(panel, wxID_ANY, "Escape line-breaks");
+    bottom_sizer->Add(escape_line_breaks_checkbox, 0,
+                      wxALIGN_CENTER_VERTICAL);
     bottom_sizer->AddStretchSpacer(1);
     copy_button = new wxButton(panel, wxID_ANY, "Copy to Clipboard");
     close_button = new wxButton(panel, wxID_ANY, "Close");
@@ -187,7 +193,10 @@ void MatchExplainDialogFrame::RunCheck(bool show_all) {
     wxString trigger = trigger_input->GetValue();
     const char *response =
         match_explain_metadata->on_check(trigger.utf8_str(), show_all,
-                                         json_checkbox->IsChecked() ? 1 : 0);
+                                         json_checkbox->IsChecked() ? 1 : 0,
+                                         escape_line_breaks_checkbox->IsChecked()
+                                             ? 1
+                                             : 0);
     if (response) {
         wxString output = wxString::FromUTF8(response);
         UpdateOutput(output, json_checkbox->IsChecked());

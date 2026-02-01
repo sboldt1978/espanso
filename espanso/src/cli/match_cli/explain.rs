@@ -46,6 +46,7 @@ pub fn explain_main(
         .expect("trigger argument is required");
     let show_all = cli_args.is_present("all");
     let json_output = cli_args.is_present("json");
+    let escape_line_breaks = cli_args.is_present("escape-line-breaks");
 
     // Get optional context filters
     let class = cli_args.value_of("class");
@@ -57,6 +58,7 @@ pub fn explain_main(
             trigger,
             show_all,
             json_output,
+            escape_line_breaks,
             app_properties: AppProperties { title, class, exec },
         },
         &*config_store,
@@ -72,6 +74,7 @@ pub(crate) struct ExplainOptions<'a> {
     pub trigger: &'a str,
     pub show_all: bool,
     pub json_output: bool,
+    pub escape_line_breaks: bool,
     pub app_properties: AppProperties<'a>,
 }
 
@@ -132,6 +135,7 @@ pub(crate) fn explain_output(
             options.trigger,
             &candidates,
             options.show_all,
+            options.escape_line_breaks,
             render_support.as_ref(),
             &context,
         )?;
@@ -192,6 +196,7 @@ fn render_human_output(
     trigger: &str,
     candidates: &[MatchCandidate],
     show_all: bool,
+    escape_line_breaks: bool,
     render_support: Option<&RenderSupport>,
     context: &ExplainContext<'_>,
 ) -> std::fmt::Result {
@@ -206,6 +211,7 @@ fn render_human_output(
             selected.info,
             trigger,
             "  ",
+            escape_line_breaks,
             render_support,
             context,
         )?;
@@ -217,18 +223,18 @@ fn render_human_output(
         writeln!(output, "Other candidates (not selected):")?;
         for candidate in candidates.iter().filter(|c| !c.is_selected) {
             writeln!(output)?;
-            writeln!(output, "  File: {}", candidate.info.source_file)?;
             render_match_details(
                 output,
                 candidate.info,
                 trigger,
-                "    ",
+                "  ",
+                escape_line_breaks,
                 render_support,
                 context,
             )?;
             writeln!(
                 output,
-                "    Reason not selected: lower priority (appears later in resolution order)"
+                "  Reason not selected: lower priority (appears later in resolution order)"
             )?;
         }
     } else if candidates.len() > 1 {
@@ -248,6 +254,7 @@ fn render_match_details(
     info: &MatchInfo,
     trigger: &str,
     indent: &str,
+    escape_line_breaks: bool,
     render_support: Option<&RenderSupport>,
     context: &ExplainContext<'_>,
 ) -> std::fmt::Result {
@@ -255,14 +262,14 @@ fn render_match_details(
     let definition = context.definition_for(info);
     let line_number = definition.as_ref().map(|def| def.line_number);
 
-    if let Some(def) = &definition {
-        let display_trigger = def
-            .original_value
-            .clone()
-            .unwrap_or_else(|| trigger.to_string());
-        writeln!(output, "{}Trigger: {}", indent, display_trigger)?;
-    } else {
-        writeln!(output, "{}Trigger: {}", indent, trigger)?;
+    let cause_triggers = match &m.cause {
+        MatchCause::Trigger(cause) => cause.triggers.as_slice(),
+        _ => &[][..],
+    };
+    let display_trigger = trigger.to_string();
+    writeln!(output, "{}Trigger matching: {}", indent, display_trigger)?;
+    if let Some(raw_triggers) = raw_trigger_list(definition, cause_triggers) {
+        writeln!(output, "{}Raw triggers: {}", indent, raw_triggers)?;
     }
 
     writeln!(output, "{}Defined in: {}", indent, info.source_file)?;
@@ -285,7 +292,7 @@ fn render_match_details(
         }
         MatchCause::Regex(cause) => {
             writeln!(output, "{}Type: regex", indent)?;
-            writeln!(output, "{}Regex: {}", indent, cause.regex)?;
+            write_value(output, indent, "Regex", &cause.regex, !escape_line_breaks)?;
         }
         MatchCause::None => {
             writeln!(output, "{}Type: none", indent)?;
@@ -296,11 +303,16 @@ fn render_match_details(
     match &m.effect {
         MatchEffect::Text(effect) => {
             writeln!(output, "{}Effect: text replacement", indent)?;
-            render_text_effect_details(output, effect, indent)?;
+            render_text_effect_details(output, effect, indent, escape_line_breaks)?;
             if let Some(render_support) = render_support {
                 if let Some(current_output) = render_current_output(render_support, m, trigger) {
-                    let display = escape_for_display(&current_output);
-                    writeln!(output, "{}Current output: \"{}\"", indent, display)?;
+                    write_value(
+                        output,
+                        indent,
+                        "Current rendered value",
+                        &current_output,
+                        !escape_line_breaks,
+                    )?;
                 }
             }
         }
@@ -353,9 +365,15 @@ fn render_text_effect_details(
     output: &mut String,
     effect: &TextEffect,
     indent: &str,
+    escape_line_breaks: bool,
 ) -> std::fmt::Result {
-    let replace_display = escape_for_display(&effect.replace);
-    writeln!(output, "{}Replace: \"{}\"", indent, replace_display)?;
+    write_value(
+        output,
+        indent,
+        "Replace",
+        &effect.replace,
+        !escape_line_breaks,
+    )?;
 
     let format_str = match effect.format {
         TextFormat::Plain => "plain",
@@ -520,26 +538,79 @@ fn match_to_json(
 fn parse_match_file(path: &str) -> Vec<TriggerDefinition> {
     let contents = std::fs::read_to_string(path).unwrap_or_default();
     let mut entries = Vec::new();
-    let mut pending: Option<(usize, Vec<String>)> = None;
+    let mut pending: Option<(usize, Vec<TriggerValue>, usize, Option<usize>)> = None;
+    let mut matches_indent: Option<usize> = None;
+    let mut match_item_indent: Option<usize> = None;
+    let mut block_indent: Option<usize> = None;
 
     for (index, line) in contents.lines().enumerate() {
+        let indent = line
+            .chars()
+            .take_while(|c| c.is_whitespace() && *c != '\n' && *c != '\r')
+            .count();
         let trimmed = line.trim_start();
-        if trimmed.starts_with("- trigger:") || trimmed.starts_with("- regex:") {
+        if let Some(current_block_indent) = block_indent {
+            if indent > current_block_indent {
+                continue;
+            }
+            block_indent = None;
+        }
+
+        if trimmed.contains(": |")
+            || trimmed.contains(": >")
+            || trimmed.contains(": |-")
+            || trimmed.contains(": |+")
+            || trimmed.contains(": >-")
+            || trimmed.contains(": >+")
+        {
+            block_indent = Some(indent);
+            continue;
+        }
+
+        if let Some((_, _, pending_indent, _)) = pending {
+            if indent <= pending_indent && !trimmed.starts_with('-') {
+                finalize_pending(&mut entries, &mut pending);
+            }
+        }
+        if trimmed.starts_with("matches:") {
+            matches_indent = Some(indent);
+            match_item_indent = None;
+            continue;
+        }
+        let Some(matches_indent) = matches_indent else {
+            continue;
+        };
+        if match_item_indent.is_none() && indent > matches_indent && trimmed.starts_with('-') {
+            match_item_indent = Some(indent);
+        }
+        let Some(match_item_indent) = match_item_indent else {
+            continue;
+        };
+        if indent == match_item_indent
+            && (trimmed.starts_with("- trigger:") || trimmed.starts_with("- regex:"))
+        {
             finalize_pending(&mut entries, &mut pending);
-            let value = extract_trigger_value(trimmed);
             entries.push(TriggerDefinition {
                 line_number: index + 1,
-                original_value: value,
+                values: extract_trigger_value_entry(trimmed),
             });
-        } else if let Some(stripped) = trimmed.strip_prefix("- triggers:") {
-            finalize_pending(&mut entries, &mut pending);
-            let inline = stripped.trim();
-            let values = parse_inline_trigger_list(inline);
-            pending = Some((index + 1, values));
-        } else if let Some((_, ref mut values)) = pending {
-            if trimmed.starts_with('-') {
-                if let Some(value) = extract_trigger_value(trimmed) {
-                    values.push(value);
+        } else if indent == match_item_indent {
+            if let Some(stripped) = trimmed.strip_prefix("- triggers:") {
+                finalize_pending(&mut entries, &mut pending);
+                let inline = stripped.trim();
+                let values = parse_inline_trigger_values(inline);
+                pending = Some((index + 1, values, indent, None));
+            }
+        } else if let Some((_, ref mut values, pending_indent, ref mut list_item_indent)) = pending
+        {
+            if indent > pending_indent && trimmed.starts_with('-') {
+                if list_item_indent.is_none() {
+                    *list_item_indent = Some(indent);
+                }
+                if Some(indent) == *list_item_indent {
+                    if let Some(value) = extract_list_item_value(trimmed) {
+                        values.push(value);
+                    }
                 }
             }
         }
@@ -551,66 +622,26 @@ fn parse_match_file(path: &str) -> Vec<TriggerDefinition> {
 
 fn finalize_pending(
     entries: &mut Vec<TriggerDefinition>,
-    pending: &mut Option<(usize, Vec<String>)>,
+    pending: &mut Option<(usize, Vec<TriggerValue>, usize, Option<usize>)>,
 ) {
-    if let Some((line_number, values)) = pending.take() {
-        let original_value = match values.len() {
-            0 => None,
-            1 => Some(values[0].clone()),
-            _ => Some(values.join(", ")),
-        };
+    if let Some((line_number, values, _, _)) = pending.take() {
         entries.push(TriggerDefinition {
             line_number,
-            original_value,
+            values,
         });
     }
 }
 
-fn parse_inline_trigger_list(value: &str) -> Vec<String> {
+fn parse_inline_trigger_values(value: &str) -> Vec<TriggerValue> {
     let trimmed = value.trim();
     if trimmed.starts_with('[') && trimmed.ends_with(']') {
         trimmed[1..trimmed.len() - 1]
             .split(',')
-            .filter_map(|part| {
-                let inner = part.trim();
-                let cleaned = inner
-                    .trim_start_matches('"')
-                    .trim_start_matches('\'')
-                    .trim_end_matches('"')
-                    .trim_end_matches('\'')
-                    .trim();
-                if cleaned.is_empty() {
-                    None
-                } else {
-                    Some(cleaned.to_string())
-                }
-            })
+            .filter_map(build_trigger_value)
             .collect()
     } else {
         Vec::new()
     }
-}
-
-fn extract_trigger_value(line: &str) -> Option<String> {
-    let colon_pos = line.find(':')?;
-    let mut value = line[colon_pos + 1..].trim();
-    if value.len() >= 2 {
-        let starts_with_quote = (value.starts_with('"') && value.ends_with('"'))
-            || (value.starts_with('\'') && value.ends_with('\''));
-        if starts_with_quote {
-            value = &value[1..value.len() - 1];
-        }
-    }
-    if value.is_empty() {
-        None
-    } else {
-        Some(value.to_string())
-    }
-}
-
-struct TriggerDefinition {
-    line_number: usize,
-    original_value: Option<String>,
 }
 
 struct RenderSupport {
@@ -782,6 +813,127 @@ fn calculate_casing_style(m: &Match, trigger: &str) -> CasingStyle {
     }
 }
 
+fn write_value(
+    output: &mut String,
+    indent: &str,
+    label: &str,
+    value: &str,
+    multiline: bool,
+) -> std::fmt::Result {
+    let normalized = value.replace("\r\n", "\n").replace('\r', "\n");
+    let has_newline = normalized.contains('\n');
+    if multiline && has_newline {
+        writeln!(output, "{}{}: |", indent, label)?;
+        for line in normalized.split('\n') {
+            writeln!(output, "{}  {}", indent, line)?;
+        }
+        Ok(())
+    } else {
+        let display = escape_for_display(value);
+        writeln!(output, "{}{}: \"{}\"", indent, label, display)
+    }
+}
+
 fn escape_for_display(value: &str) -> String {
     value.replace('\n', "\\n").replace('\r', "\\r")
+}
+
+struct TriggerDefinition {
+    line_number: usize,
+    values: Vec<TriggerValue>,
+}
+
+fn raw_trigger_list(
+    definition: Option<&TriggerDefinition>,
+    cause_triggers: &[String],
+) -> Option<String> {
+    if let Some(def) = definition {
+        if !def.values.is_empty() {
+            let list = def
+                .values
+                .iter()
+                .map(|value| value.raw.as_str())
+                .collect::<Vec<_>>();
+            return Some(format_raw_trigger_array(&list));
+        }
+    }
+    if !cause_triggers.is_empty() {
+        let list = cause_triggers
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        return Some(format_raw_trigger_array(&list));
+    }
+    None
+}
+
+fn format_raw_trigger_array(values: &[&str]) -> String {
+    let joined = values
+        .iter()
+        .map(|value| format!("\"{}\"", value))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("[{}]", joined)
+}
+
+struct TriggerValue {
+    raw: String,
+}
+
+fn extract_trigger_value_entry(line: &str) -> Vec<TriggerValue> {
+    let raw = extract_trigger_value_raw(line);
+    raw.and_then(|raw| build_trigger_value(&raw))
+        .map(|value| vec![value])
+        .unwrap_or_default()
+}
+
+fn extract_trigger_value_raw(line: &str) -> Option<String> {
+    let colon_pos = line.find(':')?;
+    let value = line[colon_pos + 1..]
+        .split('#')
+        .next()?
+        .trim()
+        .trim_end_matches(',');
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.to_string())
+    }
+}
+
+fn extract_list_item_value(line: &str) -> Option<TriggerValue> {
+    let raw = line
+        .trim_start_matches('-')
+        .split('#')
+        .next()?
+        .trim()
+        .trim_end_matches(',');
+    build_trigger_value(raw)
+}
+
+fn build_trigger_value(raw: &str) -> Option<TriggerValue> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let cleaned = clean_trigger_token(raw)?;
+    Some(TriggerValue { raw: cleaned })
+}
+
+fn clean_trigger_token(raw: &str) -> Option<String> {
+    let mut cleaned = raw.trim();
+    if cleaned.starts_with('[') && cleaned.ends_with(']') {
+        cleaned = cleaned[1..cleaned.len() - 1].trim();
+    }
+    if cleaned.len() >= 2
+        && ((cleaned.starts_with('"') && cleaned.ends_with('"'))
+            || (cleaned.starts_with('\'') && cleaned.ends_with('\'')))
+    {
+        cleaned = &cleaned[1..cleaned.len() - 1];
+    }
+    if cleaned.is_empty() {
+        None
+    } else {
+        Some(cleaned.to_string())
+    }
 }
