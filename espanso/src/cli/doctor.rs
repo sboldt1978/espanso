@@ -45,6 +45,12 @@ use espanso_config::{
     matches::{read_match_group_triggers, Match, MatchCause, MatchEffect, RegexCause, Value},
 };
 
+/// Type alias for duplicate triggers: maps trigger string to list of file paths
+type DuplicateTriggers = BTreeMap<String, Vec<String>>;
+
+/// Type alias for file read errors: list of (file_path, error_message) tuples
+type FileReadErrors = Vec<(String, String)>;
+
 /// Diagnostic severity level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -397,9 +403,7 @@ fn check_duplicate_triggers(
     }
 }
 
-fn find_duplicate_triggers(
-    paths: &[String],
-) -> (BTreeMap<String, Vec<String>>, Vec<(String, String)>) {
+fn find_duplicate_triggers(paths: &[String]) -> (DuplicateTriggers, FileReadErrors) {
     let mut triggers: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     let mut errors: Vec<(String, String)> = Vec::new();
 
