@@ -192,6 +192,10 @@ impl Config for ResolvedConfig {
         }
     }
 
+    fn toggle_key_press_count(&self) -> u32 {
+        self.parsed.toggle_key_press_count.unwrap_or(2)
+    }
+
     fn preserve_clipboard(&self) -> bool {
         self.parsed.preserve_clipboard.unwrap_or(true)
     }
@@ -505,6 +509,7 @@ impl ResolvedConfig {
             paste_shortcut_event_delay,
             disable_x11_fast_inject,
             toggle_key,
+            toggle_key_press_count,
             inject_delay,
             key_delay,
             evdev_modifier_delay,
