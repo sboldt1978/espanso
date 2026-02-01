@@ -86,6 +86,12 @@ pub trait Config: Send + Sync {
     // Defines the key that disables/enables espanso when double pressed
     fn toggle_key(&self) -> Option<ToggleKey>;
 
+    // Number of times the toggle key must be pressed to toggle espanso.
+    // Defaults to 2 (double press).
+    fn toggle_key_press_count(&self) -> u32 {
+        2
+    }
+
     // If true, instructs the daemon process to restart the worker (and refresh
     // the configuration) after a configuration file change is detected on disk.
     fn auto_restart(&self) -> bool;
@@ -227,6 +233,7 @@ pub trait Config: Send + Sync {
         pre_paste_delay: {}
         paste_shortcut_event_delay: {}
         toggle_key: {:?}
+        toggle_key_press_count: {:?}
         auto_restart: {:?}
         restore_clipboard_delay: {:?}
         post_form_delay: {:?}
@@ -266,6 +273,7 @@ pub trait Config: Send + Sync {
           self.pre_paste_delay(),
           self.paste_shortcut_event_delay(),
           self.toggle_key(),
+          self.toggle_key_press_count(),
           self.auto_restart(),
           self.restore_clipboard_delay(),
           self.post_form_delay(),

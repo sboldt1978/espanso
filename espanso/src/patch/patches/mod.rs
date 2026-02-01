@@ -38,6 +38,7 @@ generate_patchable_config!(
   paste_shortcut -> Option<String>,
   disable_x11_fast_inject -> bool,
   toggle_key -> Option<ToggleKey>,
+  toggle_key_press_count -> u32,
   auto_restart -> bool,
   preserve_clipboard -> bool,
   restore_clipboard_delay -> usize,
