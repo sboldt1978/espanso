@@ -60,6 +60,7 @@ enum-as-inner = "0.3.3"
 dirs.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+regex.workspace = true
 log-panics = "2.0.0"
 fs2 = "0.4.3"
 serde_norway.workspace = true
@@ -87,7 +88,6 @@ espanso-mac-utils = { path = "../espanso-mac-utils" }
 [target.'cfg(target_os="linux")'.dependencies]
 caps = "0.5.2"
 const_format = "0.2.14"
-regex.workspace = true
 
 [package.metadata.deb]
 maintainer = "Auca Coyan <aucacoyan@gmail.com>"
