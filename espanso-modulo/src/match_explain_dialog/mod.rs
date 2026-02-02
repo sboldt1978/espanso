@@ -19,7 +19,7 @@
 
 pub use crate::sys::match_explain_dialog::show;
 
-pub type MatchExplainOnCheckHandler = Box<dyn Fn(&str, bool, bool) -> String + Send>;
+pub type MatchExplainOnCheckHandler = Box<dyn Fn(&str, bool, bool, bool) -> String + Send>;
 pub type MatchExplainOnOpenFileHandler = Box<dyn Fn(&str) + Send>;
 
 pub struct MatchExplainDialogOptions {

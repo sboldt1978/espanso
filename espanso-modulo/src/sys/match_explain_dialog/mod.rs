@@ -39,6 +39,7 @@ pub fn show(options: MatchExplainDialogOptions) -> Result<()> {
         trigger: *const c_char,
         show_all: c_int,
         json_output: c_int,
+        escape_line_breaks: c_int,
     ) -> *const c_char {
         let trigger_str = if trigger.is_null() {
             String::new()
@@ -50,13 +51,15 @@ pub fn show(options: MatchExplainDialogOptions) -> Result<()> {
 
         let show_all = show_all != 0;
         let json_output = json_output != 0;
+        let escape_line_breaks = escape_line_breaks != 0;
 
         let lock = HANDLERS
             .lock()
             .expect("unable to acquire handlers lock in on_check");
         let handlers_ref = (*lock).as_ref().expect("unable to unwrap handlers");
 
-        let output = (handlers_ref.on_check)(&trigger_str, show_all, json_output);
+        let output =
+            (handlers_ref.on_check)(&trigger_str, show_all, json_output, escape_line_breaks);
         let sanitized = output.replace('\0', "\\0");
         let c_output = CString::new(sanitized).unwrap_or_else(|_| CString::new("").unwrap());
 
