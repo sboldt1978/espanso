@@ -528,23 +528,31 @@ EXAMPLES:\n  \
                 .required(false)
                 .takes_value(false)
             )
+            // TODO: The following options (class, title, exec) are hidden for now because
+            // app-specific config simulation is not fully implemented yet. Currently these
+            // options affect which config is selected but do not respect the `enable: false`
+            // setting or other app-specific behaviors. Re-enable these options once the
+            // simulation properly reflects how espanso would behave for that app context.
             .arg(Arg::with_name("class")
                 .long("class")
                 .help("Simulate context with the given window class")
                 .required(false)
                 .takes_value(true)
+                .hidden(true)
             )
             .arg(Arg::with_name("title")
                 .long("title")
                 .help("Simulate context with the given window title")
                 .required(false)
                 .takes_value(true)
+                .hidden(true)
             )
             .arg(Arg::with_name("exec")
                 .long("exec")
                 .help("Simulate context with the given executable name")
                 .required(false)
                 .takes_value(true)
+                .hidden(true)
             )
         )
         .subcommand(SubCommand::with_name("expand")
