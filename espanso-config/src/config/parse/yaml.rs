@@ -125,6 +125,9 @@ pub struct YAMLConfig {
     pub secure_input_notification: Option<bool>,
 
     #[serde(default)]
+    pub yaml_editor_path: Option<String>,
+
+    #[serde(default)]
     pub emulate_alt_codes: Option<bool>,
 
     #[serde(default)]
@@ -231,6 +234,7 @@ impl TryFrom<YAMLConfig> for ParsedConfig {
             show_icon: yaml_config.show_icon,
             show_notifications: yaml_config.show_notifications,
             secure_input_notification: yaml_config.secure_input_notification,
+            yaml_editor_path: yaml_config.yaml_editor_path,
 
             pre_paste_delay: yaml_config.pre_paste_delay,
             restore_clipboard_delay: yaml_config.restore_clipboard_delay,
@@ -306,6 +310,7 @@ mod tests {
     show_icon: false
     show_notifications: false
     secure_input_notification: false
+    yaml_editor_path: /usr/bin/code
     post_form_delay: 300
     max_form_width: 700
     max_form_height: 500
@@ -367,6 +372,7 @@ mod tests {
                 show_icon: Some(false),
                 show_notifications: Some(false),
                 secure_input_notification: Some(false),
+                yaml_editor_path: Some("/usr/bin/code".to_string()),
                 stats_enabled: None,
                 emulate_alt_codes: Some(true),
                 max_regex_buffer_size: Some(30),

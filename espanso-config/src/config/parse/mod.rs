@@ -44,6 +44,7 @@ pub struct ParsedConfig {
     pub show_notifications: Option<bool>,
     pub show_icon: Option<bool>,
     pub secure_input_notification: Option<bool>,
+    pub yaml_editor_path: Option<String>,
     pub post_form_delay: Option<usize>,
     pub max_form_width: Option<usize>,
     pub max_form_height: Option<usize>,

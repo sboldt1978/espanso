@@ -95,6 +95,10 @@ macro_rules! generate_patchable_config {
           self.base.secure_input_notification()
         }
 
+        fn yaml_editor_path(&self) -> Option<String> {
+          self.base.yaml_editor_path()
+        }
+
         fn stats_enabled(&self) -> bool {
           self.base.stats_enabled()
         }

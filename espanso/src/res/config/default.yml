@@ -49,4 +49,9 @@
 # at the cost of higher memory usage.
 # max_regex_buffer_size: 30
 
+# --- YAML Editor
+
+# Optional editor executable path to open YAML files.
+# yaml_editor_path: /path/to/editor
+
 # For a list of all the available options, visit the official docs at: https://espanso.org/docs/

@@ -103,6 +103,10 @@
       "description": "If false, disable all notifications.",
       "type": "boolean"
     },
+    "yaml_editor_path": {
+      "description": "Optional editor executable path to open YAML files.",
+      "type": "string"
+    },
     "toggle_key": {
       "description": "Defines the key that disables/enables espanso when double pressed.",
       "type": "string",
