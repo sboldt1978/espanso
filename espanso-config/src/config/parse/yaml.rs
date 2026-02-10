@@ -61,6 +61,9 @@ pub struct YAMLConfig {
     pub toggle_key: Option<String>,
 
     #[serde(default)]
+    pub toggle_key_press_count: Option<u32>,
+
+    #[serde(default)]
     pub auto_restart: Option<bool>,
 
     #[serde(default)]
@@ -241,6 +244,7 @@ impl TryFrom<YAMLConfig> for ParsedConfig {
             clipboard_threshold: yaml_config.clipboard_threshold,
             auto_restart: yaml_config.auto_restart,
             toggle_key: yaml_config.toggle_key,
+            toggle_key_press_count: yaml_config.toggle_key_press_count,
             preserve_clipboard: yaml_config.preserve_clipboard,
             paste_shortcut: yaml_config.paste_shortcut,
             disable_x11_fast_inject: yaml_config.disable_x11_fast_inject,
@@ -334,6 +338,7 @@ mod tests {
     clipboard_threshold: 200
     pre_paste_delay: 300
     toggle_key: CTRL
+    toggle_key_press_count: 3
     auto_restart: false
     preserve_clipboard: false
     restore_clipboard_delay: 400
@@ -451,6 +456,7 @@ mod tests {
                 evdev_modifier_delay: Some(40),
 
                 toggle_key: Some("CTRL".to_string()),
+                toggle_key_press_count: Some(3),
                 word_separators: Some(vec!["'".to_owned(), ".".to_owned()]),
 
                 use_standard_includes: Some(true),

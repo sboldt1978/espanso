@@ -33,6 +33,7 @@ pub struct ParsedConfig {
     pub auto_restart: Option<bool>,
     pub preserve_clipboard: Option<bool>,
     pub toggle_key: Option<String>,
+    pub toggle_key_press_count: Option<u32>,
     pub paste_shortcut: Option<String>,
     pub disable_x11_fast_inject: Option<bool>,
     pub word_separators: Option<Vec<String>>,
