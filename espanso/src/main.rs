@@ -346,6 +346,35 @@ EXAMPLES:\n  \
         )
         .subcommand(SubCommand::with_name("troubleshoot").about("Display the troubleshooting GUI"))
         .subcommand(
+          SubCommand::with_name("export_dialog")
+            .about("Display the Export Dialog")
+            .arg(
+              Arg::with_name("runtime_path")
+                .long("runtime-path")
+                .required(true)
+                .takes_value(true)
+                .help("Path to runtime directory"),
+            )
+            .arg(
+              Arg::with_name("config_path")
+                .long("config-path")
+                .required(true)
+                .takes_value(true)
+                .help("Path to config directory"),
+            ),
+        )
+        .subcommand(
+          SubCommand::with_name("import_dialog")
+            .about("Display the Import Dialog")
+            .arg(
+              Arg::with_name("config_path")
+                .long("config-path")
+                .required(true)
+                .takes_value(true)
+                .help("Path to config directory"),
+            ),
+        )
+        .subcommand(
           SubCommand::with_name("welcome")
             .about("Display the welcome screen")
             .arg(
