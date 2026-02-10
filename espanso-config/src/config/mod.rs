@@ -150,6 +150,15 @@ pub trait Config: Send + Sync {
     // If false, avoid showing the `SecureInput`` notification on macOS
     fn secure_input_notification(&self) -> bool;
 
+    // Max entries for the global recent files list in the Open file menu.
+    fn open_file_menu_recent_files_count(&self) -> usize;
+
+    // Max entries for per-scope recent files lists in the Open file menu.
+    fn open_file_menu_recent_files_per_scope_count(&self) -> usize;
+
+    // Optional editor path for opening YAML files from the Open file menu.
+    fn yaml_editor_path(&self) -> Option<String>;
+
     // Stats: if false, disable recording expansions statistics.
     fn stats_enabled(&self) -> bool;
 
@@ -269,6 +278,9 @@ pub trait Config: Send + Sync {
         show_icon: {:?}
         show_notifications: {:?}
         secure_input_notification: {:?}
+        open_file_menu_recent_files_count: {:?}
+        open_file_menu_recent_files_per_scope_count: {:?}
+        yaml_editor_path: {:?}
 
         max_regex_buffer_size: {:?}
 
@@ -316,6 +328,9 @@ pub trait Config: Send + Sync {
           self.show_icon(),
           self.show_notifications(),
           self.secure_input_notification(),
+          self.open_file_menu_recent_files_count(),
+          self.open_file_menu_recent_files_per_scope_count(),
+          self.yaml_editor_path(),
 
           self.max_regex_buffer_size(),
 

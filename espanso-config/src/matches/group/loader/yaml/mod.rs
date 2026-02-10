@@ -680,6 +680,7 @@ mod tests {
         triggermarker_smart_chars: Vec<String>,
         triggermarker_smart_remove_multiple: bool,
     }
+
     impl MockConfig {
         fn default() -> Self {
             Self {

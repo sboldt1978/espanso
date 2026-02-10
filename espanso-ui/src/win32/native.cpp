@@ -319,13 +319,20 @@ void _insert_single_menu(HMENU parent, json item) {
     }
     std::string label = item["label"];
     uint32_t raw_id = item["id"];
+    bool enabled = true;
+    if (item.contains("enabled") && item["enabled"].is_boolean()) {
+        enabled = item["enabled"];
+    }
 
     // Convert to wide chars
     std::wstring wide_label(label.length(), L'#');
     mbstowcs(&wide_label[0], label.c_str(), label.length());
 
-    InsertMenu(parent, -1, MF_BYPOSITION | MF_STRING, raw_id,
-               wide_label.c_str());
+    UINT flags = MF_BYPOSITION | MF_STRING;
+    if (!enabled) {
+        flags |= MF_GRAYED;
+    }
+    InsertMenu(parent, -1, flags, raw_id, wide_label.c_str());
 }
 
 void _insert_sub_menu(HMENU parent, json items) {

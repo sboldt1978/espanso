@@ -33,6 +33,7 @@ pub enum MenuItem {
 pub struct SimpleMenuItem {
     pub id: u32,
     pub label: String,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]

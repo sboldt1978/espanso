@@ -95,6 +95,18 @@ macro_rules! generate_patchable_config {
           self.base.secure_input_notification()
         }
 
+        fn open_file_menu_recent_files_count(&self) -> usize {
+          self.base.open_file_menu_recent_files_count()
+        }
+
+        fn open_file_menu_recent_files_per_scope_count(&self) -> usize {
+          self.base.open_file_menu_recent_files_per_scope_count()
+        }
+
+        fn yaml_editor_path(&self) -> Option<String> {
+          self.base.yaml_editor_path()
+        }
+
         fn stats_enabled(&self) -> bool {
           self.base.stats_enabled()
         }
