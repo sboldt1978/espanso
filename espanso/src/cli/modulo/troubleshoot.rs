@@ -18,11 +18,44 @@
  */
 
 use std::path::Path;
+use std::process::Command;
 
 use crate::icon::IconPaths;
 use crate::path::Paths;
 use crate::preferences::Preferences;
 use espanso_modulo::troubleshooting::{TroubleshootingHandlers, TroubleshootingOptions};
+
+fn is_yaml_file(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("yml") || ext.eq_ignore_ascii_case("yaml"))
+}
+
+fn open_with_editor(editor: &str, file_path: &Path) -> anyhow::Result<()> {
+    if cfg!(target_os = "windows") {
+        Command::new(editor).arg(file_path).spawn()?;
+    } else {
+        Command::new("/bin/bash")
+            .arg("-c")
+            .arg(format!("{} '{}'", editor, file_path.to_string_lossy()))
+            .spawn()?;
+    }
+    Ok(())
+}
+
+fn open_file_with_yaml_editor(
+    file_path: &Path,
+    yaml_editor_path: Option<&str>,
+) -> anyhow::Result<()> {
+    if is_yaml_file(file_path) {
+        if let Some(editor) = yaml_editor_path {
+            open_with_editor(editor, file_path)?;
+            return Ok(());
+        }
+    }
+
+    opener::open(file_path)?;
+    Ok(())
+}
 
 pub fn troubleshoot_main(paths: &Paths, icon_paths: &IconPaths) -> i32 {
     let preferences =
@@ -32,14 +65,11 @@ pub fn troubleshoot_main(paths: &Paths, icon_paths: &IconPaths) -> i32 {
         preferences.set_should_display_troubleshoot_for_non_fatal_errors(!dont_show);
     });
 
-    let open_file_handler = Box::new(move |file_path: &Path| {
-        if let Err(err) = opener::open(file_path) {
-            eprintln!("error opening file: {err}");
-        }
-    });
+    let mut yaml_editor_path: Option<String> = None;
 
     let (is_fatal_error, error_sets) = match crate::config::load_config(&paths.config) {
         Ok(config_result) => {
+            yaml_editor_path = config_result.config_store.default().yaml_editor_path();
             let error_sets = config_result
                 .non_fatal_errors
                 .into_iter()
@@ -86,6 +116,19 @@ pub fn troubleshoot_main(paths: &Paths, icon_paths: &IconPaths) -> i32 {
             )
         }
     };
+
+    let yaml_editor_path = yaml_editor_path.and_then(|path| {
+        if path.trim().is_empty() {
+            None
+        } else {
+            Some(path)
+        }
+    });
+    let open_file_handler = Box::new(move |file_path: &Path| {
+        if let Err(err) = open_file_with_yaml_editor(file_path, yaml_editor_path.as_deref()) {
+            eprintln!("error opening file: {err}");
+        }
+    });
 
     espanso_modulo::troubleshooting::show(TroubleshootingOptions {
         window_icon_path: icon_paths
