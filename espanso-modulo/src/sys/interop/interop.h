@@ -203,3 +203,11 @@ typedef struct ImportDialogMetadata {
     int (*perform_import)(const char *data, int import_config, int import_matches, int import_packages,
                           int clear_config, int clear_matches, int clear_packages);
 } ImportDialogMetadata;
+typedef struct MatchExplainDialogMetadata {
+    const char *window_icon_path;
+    const char *(*on_check)(const char *trigger, int show_all, int json_output,
+                            int escape_line_breaks);
+    void (*on_open_file)(const char *path);
+    void (*on_focus_gained)();
+    void (*on_focus_lost)();
+} MatchExplainDialogMetadata;

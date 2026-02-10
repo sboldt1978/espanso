@@ -63,6 +63,7 @@ static CLI_HANDLERS: LazyLock<Vec<CliModule>> = LazyLock::new(|| {
     vec![
         cli::path::new(),
         cli::edit::new(),
+        cli::doctor::new(),
         cli::launcher::new(),
         cli::log::new(),
         cli::stats::new(),
@@ -161,14 +162,40 @@ For example, specifying 'email' is equivalent to 'match/email.yml'."#))
     .subcommand(SubCommand::with_name("launcher").setting(AppSettings::Hidden))
     .subcommand(SubCommand::with_name("log").about("Print the daemon logs."))
     .subcommand(
+      SubCommand::with_name("doctor")
+        .about("Validate configuration and report common issues.")
+        .arg(
+          Arg::with_name("verbose")
+            .short('v')
+            .long("verbose")
+            .help("Show detailed output for each check")
+        )
+        .arg(
+          Arg::with_name("format")
+            .long("format")
+            .takes_value(true)
+            .possible_values(["text", "json"])
+            .default_value("text")
+            .help("Output format: text or json")
+        )
+    )
+    .subcommand(
       SubCommand::with_name("export")
         .about("Export Espanso data as a base64 payload for offline transfer.")
         .long_about("Export Espanso data as a base64 payload for offline transfer.\n\n\
 EXAMPLES:\n  \
+  espanso export -f backup.espanso\n  \
+  espanso export --file backup.espanso --scope config,matches\n  \
   espanso export > backup.txt\n  \
-  espanso export --scope config,matches > backup.txt\n  \
   espanso export --scope packages > packages-only.txt\n  \
   espanso export --wrap 76 > backup.txt")
+        .arg(
+          Arg::with_name("file")
+            .short('f')
+            .long("file")
+            .takes_value(true)
+            .help("Write output to file instead of stdout"),
+        )
         .arg(
           Arg::with_name("scope")
             .long("scope")
@@ -187,11 +214,20 @@ EXAMPLES:\n  \
         .about("Import Espanso data from a base64 payload for offline transfer.")
         .long_about("Import Espanso data from a base64 payload for offline transfer.\n\n\
 EXAMPLES:\n  \
+  espanso import -f backup.espanso\n  \
+  espanso import --file backup.espanso --yes\n  \
   espanso import < backup.txt\n  \
   espanso import --scope config < config-only.txt\n  \
   espanso import --yes < backup.txt\n  \
   espanso import --convert-lb < backup.txt\n  \
   cat backup.txt | espanso import --yes")
+        .arg(
+          Arg::with_name("file")
+            .short('f')
+            .long("file")
+            .takes_value(true)
+            .help("Read input from file instead of stdin"),
+        )
         .arg(
           Arg::with_name("scope")
             .long("scope")
@@ -291,6 +327,28 @@ EXAMPLES:\n  \
             ),
         )
         .subcommand(
+          SubCommand::with_name("textview")
+            .about("Display a Text View")
+            .arg(
+              Arg::with_name("input_file")
+                .short('i')
+                .takes_value(true)
+                .help("Input file or - for stdin"),
+            )
+            .arg(
+              Arg::with_name("title")
+              .long("title")
+                .required(true)
+                .takes_value(true)
+                .help("Window title to display"),
+            ),
+        )
+        .subcommand(
+          SubCommand::with_name("match-explain")
+            .about("Display the match explain dialog")
+        )
+        .subcommand(SubCommand::with_name("troubleshoot").about("Display the troubleshooting GUI"))
+        .subcommand(
           SubCommand::with_name("export_dialog")
             .about("Display the Export Dialog")
             .arg(
@@ -319,24 +377,6 @@ EXAMPLES:\n  \
                 .help("Path to config directory"),
             ),
         )
-        .subcommand(
-          SubCommand::with_name("textview")
-            .about("Display a Text View")
-            .arg(
-              Arg::with_name("input_file")
-                .short('i')
-                .takes_value(true)
-                .help("Input file or - for stdin"),
-            )
-            .arg(
-              Arg::with_name("title")
-              .long("title")
-                .required(true)
-                .takes_value(true)
-                .help("Window title to display"),
-            ),
-        )
-        .subcommand(SubCommand::with_name("troubleshoot").about("Display the troubleshooting GUI"))
         .subcommand(
           SubCommand::with_name("welcome")
             .about("Display the welcome screen")
@@ -459,6 +499,60 @@ EXAMPLES:\n  \
                 .takes_value(true)
                 .multiple(true)
                 .number_of_values(1)
+            )
+        )
+        .subcommand(SubCommand::with_name("explain")
+            .about("Explain how espanso resolves a match for a given trigger")
+            .arg(Arg::with_name("trigger")
+                .help("The trigger to explain")
+                .required(true)
+                .index(1)
+            )
+            .arg(Arg::with_name("all")
+                .short('a')
+                .long("all")
+                .help("Show all candidates for the trigger, not just the selected one")
+                .required(false)
+                .takes_value(false)
+            )
+            .arg(Arg::with_name("json")
+                .short('j')
+                .long("json")
+                .help("Output in JSON format")
+                .required(false)
+                .takes_value(false)
+            )
+            .arg(Arg::with_name("escape-line-breaks")
+                .long("escape-line-breaks")
+                .help("Render multi-line values on a single line (escape newlines)")
+                .required(false)
+                .takes_value(false)
+            )
+            // TODO: The following options (class, title, exec) are hidden for now because
+            // app-specific config simulation is not fully implemented yet. Currently these
+            // options affect which config is selected but do not respect the `enable: false`
+            // setting or other app-specific behaviors. Re-enable these options once the
+            // simulation properly reflects how espanso would behave for that app context.
+            .arg(Arg::with_name("class")
+                .long("class")
+                .help("Simulate context with the given window class")
+                .required(false)
+                .takes_value(true)
+                .hidden(true)
+            )
+            .arg(Arg::with_name("title")
+                .long("title")
+                .help("Simulate context with the given window title")
+                .required(false)
+                .takes_value(true)
+                .hidden(true)
+            )
+            .arg(Arg::with_name("exec")
+                .long("exec")
+                .help("Simulate context with the given executable name")
+                .required(false)
+                .takes_value(true)
+                .hidden(true)
             )
         )
         .subcommand(SubCommand::with_name("expand")

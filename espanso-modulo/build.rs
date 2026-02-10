@@ -141,6 +141,7 @@ fn build_native() {
         .file("src/sys/welcome/welcome_gui.cpp")
         .file("src/sys/textview/textview.cpp")
         .file("src/sys/textview/textview_gui.cpp")
+        .file("src/sys/match_explain_dialog/match_explain_dialog.cpp")
         .file("src/sys/troubleshooting/troubleshooting.cpp")
         .file("src/sys/troubleshooting/troubleshooting_gui.cpp")
         .flag("/EHsc")
@@ -295,6 +296,7 @@ fn build_native() {
         .file("src/sys/welcome/welcome_gui.cpp")
         .file("src/sys/textview/textview.cpp")
         .file("src/sys/textview/textview_gui.cpp")
+        .file("src/sys/match_explain_dialog/match_explain_dialog.cpp")
         .file("src/sys/troubleshooting/troubleshooting.cpp")
         .file("src/sys/troubleshooting/troubleshooting_gui.cpp")
         .file("src/sys/common/mac.mm");
@@ -387,22 +389,8 @@ fn get_cpp_flags(wx_config_path: &Path) -> Vec<String> {
 #[cfg(not(target_os = "windows"))]
 fn generate_linker_flags(wx_config_path: &Path) {
     use regex::Regex;
-    let config_output = std::process::Command::new(wx_config_path)
-        .arg("--libs")
-        .output()
-        .expect("unable to execute wx-config libs");
-    let config_libs =
-        String::from_utf8(config_output.stdout).expect("unable to parse wx-config libs output");
-    let linker_flags: Vec<String> = config_libs
-        .split(' ')
-        .filter_map(|s| {
-            if s.trim().is_empty() {
-                None
-            } else {
-                Some(s.trim().to_owned())
-            }
-        })
-        .collect();
+    let mut linker_flags = get_linker_flags(wx_config_path, &["--libs"]);
+    linker_flags.extend(get_linker_flags(wx_config_path, &["--libs", "richtext"]));
 
     let static_lib_extract = Regex::new(r"lib/lib(.*)\.a").unwrap();
 
@@ -425,6 +413,26 @@ fn generate_linker_flags(wx_config_path: &Path) {
             println!("cargo:rustc-link-lib=dylib={libname}");
         }
     }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn get_linker_flags(wx_config_path: &Path, args: &[&str]) -> Vec<String> {
+    let config_output = std::process::Command::new(wx_config_path)
+        .args(args)
+        .output()
+        .expect("unable to execute wx-config libs");
+    let config_libs =
+        String::from_utf8(config_output.stdout).expect("unable to parse wx-config libs output");
+    config_libs
+        .split(' ')
+        .filter_map(|s| {
+            if s.trim().is_empty() {
+                None
+            } else {
+                Some(s.trim().to_owned())
+            }
+        })
+        .collect()
 }
 
 // Taken from curl-rust: https://github.com/alexcrichton/curl-rust/pull/283/files
@@ -492,6 +500,7 @@ fn build_native() {
         .file("src/sys/welcome/welcome_gui.cpp")
         .file("src/sys/textview/textview.cpp")
         .file("src/sys/textview/textview_gui.cpp")
+        .file("src/sys/match_explain_dialog/match_explain_dialog.cpp")
         .file("src/sys/troubleshooting/troubleshooting.cpp")
         .file("src/sys/troubleshooting/troubleshooting_gui.cpp");
     build.flag("-std=c++17");

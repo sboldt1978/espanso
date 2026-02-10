@@ -17,19 +17,19 @@
  * along with modulo.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-pub mod export_dialog;
-pub mod form;
-pub mod import_dialog;
-pub mod match_explain_dialog;
-pub mod search;
-pub mod textview;
-pub mod troubleshooting;
-pub mod welcome;
-pub mod wizard;
+pub use crate::sys::match_explain_dialog::show;
 
-#[allow(non_upper_case_globals)]
-#[allow(dead_code)]
-#[allow(non_snake_case)]
-pub mod interop;
+pub type MatchExplainOnCheckHandler = Box<dyn Fn(&str, bool, bool, bool) -> String + Send>;
+pub type MatchExplainOnOpenFileHandler = Box<dyn Fn(&str) + Send>;
 
-mod util;
+pub struct MatchExplainDialogOptions {
+    pub window_icon_path: Option<String>,
+    pub handlers: MatchExplainDialogHandlers,
+}
+
+pub struct MatchExplainDialogHandlers {
+    pub on_check: MatchExplainOnCheckHandler,
+    pub on_open_file: MatchExplainOnOpenFileHandler,
+    pub on_focus_gained: Box<dyn Fn() + Send>,
+    pub on_focus_lost: Box<dyn Fn() + Send>,
+}

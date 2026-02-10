@@ -199,7 +199,11 @@ pub struct TextViewMetadata {
 #[derive(Debug, Copy, Clone)]
 pub struct ExportDialogMetadata {
     pub window_icon_path: *const c_char,
-    pub generate_export_code: extern "C" fn(export_config: c_int, export_matches: c_int, export_packages: c_int) -> *const c_char,
+    pub generate_export_code: extern "C" fn(
+        export_config: c_int,
+        export_matches: c_int,
+        export_packages: c_int,
+    ) -> *const c_char,
 }
 
 // Scope status constants for import validation
@@ -227,6 +231,16 @@ pub struct ImportDialogMetadata {
         clear_matches: c_int,
         clear_packages: c_int,
     ) -> c_int,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct MatchExplainDialogMetadata {
+    pub window_icon_path: *const c_char,
+    pub on_check: extern "C" fn(*const c_char, c_int, c_int, c_int) -> *const c_char,
+    pub on_open_file: extern "C" fn(*const c_char),
+    pub on_focus_gained: extern "C" fn(),
+    pub on_focus_lost: extern "C" fn(),
 }
 
 // Native bindings
@@ -273,4 +287,6 @@ extern "C" {
 
     // IMPORT DIALOG
     pub(crate) fn interop_show_import_dialog(metadata: *const ImportDialogMetadata);
+    // MATCH EXPLAIN DIALOG
+    pub(crate) fn interop_show_match_explain_dialog(metadata: *const MatchExplainDialogMetadata);
 }

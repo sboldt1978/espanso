@@ -106,6 +106,7 @@ pub enum EventType {
     ShowLogs,
     ExportConfig,
     ImportConfig,
+    ShowMatchExplainDialog,
 
     // Other
     LaunchSecureInputAutoFix,
