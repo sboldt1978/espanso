@@ -46,7 +46,7 @@ pub struct ParsedConfig {
     pub secure_input_notification: Option<bool>,
     pub open_file_menu_recent_files_count: Option<usize>,
     pub open_file_menu_recent_files_per_scope_count: Option<usize>,
-    pub open_file_menu_yaml_editor_path: Option<String>,
+    pub yaml_editor_path: Option<String>,
     pub post_form_delay: Option<usize>,
     pub max_form_width: Option<usize>,
     pub max_form_height: Option<usize>,

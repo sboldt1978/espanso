@@ -157,7 +157,7 @@ impl OpenFileMenuProvider for OpenFileMenuProviderAdapter<'_> {
     }
 
     fn open_file(&self, item: &OpenFileMenuItem) -> Result<()> {
-        let editor_path = self.config.open_file_menu_yaml_editor_path();
+        let editor_path = self.config.yaml_editor_path();
         open_file_with_preferred_editor(&item.path, editor_path.as_deref())?;
 
         let mut state = self.state.borrow_mut();

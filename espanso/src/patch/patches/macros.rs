@@ -103,8 +103,8 @@ macro_rules! generate_patchable_config {
           self.base.open_file_menu_recent_files_per_scope_count()
         }
 
-        fn open_file_menu_yaml_editor_path(&self) -> Option<String> {
-          self.base.open_file_menu_yaml_editor_path()
+        fn yaml_editor_path(&self) -> Option<String> {
+          self.base.yaml_editor_path()
         }
 
         fn stats_enabled(&self) -> bool {

@@ -316,8 +316,8 @@ impl Config for ResolvedConfig {
             .unwrap_or_else(|| self.open_file_menu_recent_files_count())
     }
 
-    fn open_file_menu_yaml_editor_path(&self) -> Option<String> {
-        self.parsed.open_file_menu_yaml_editor_path.clone()
+    fn yaml_editor_path(&self) -> Option<String> {
+        self.parsed.yaml_editor_path.clone()
     }
 
     fn stats_enabled(&self) -> bool {
@@ -461,7 +461,7 @@ impl ResolvedConfig {
             secure_input_notification,
             open_file_menu_recent_files_count,
             open_file_menu_recent_files_per_scope_count,
-            open_file_menu_yaml_editor_path,
+            yaml_editor_path,
             emulate_alt_codes,
             post_form_delay,
             max_form_width,
