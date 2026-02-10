@@ -63,7 +63,6 @@ static CLI_HANDLERS: LazyLock<Vec<CliModule>> = LazyLock::new(|| {
     vec![
         cli::path::new(),
         cli::edit::new(),
-        cli::doctor::new(),
         cli::launcher::new(),
         cli::log::new(),
         cli::stats::new(),
@@ -76,8 +75,6 @@ static CLI_HANDLERS: LazyLock<Vec<CliModule>> = LazyLock::new(|| {
         cli::package::new(),
         cli::match_cli::new(),
         cli::cmd::new(),
-        cli::offline::new_export(),
-        cli::offline::new_import(),
     ]
 });
 
@@ -324,35 +321,6 @@ EXAMPLES:\n  \
                 .required(false)
                 .takes_value(false)
                 .help("Interpret the input data as JSON"),
-            ),
-        )
-        .subcommand(
-          SubCommand::with_name("export_dialog")
-            .about("Display the Export Dialog")
-            .arg(
-              Arg::with_name("runtime_path")
-                .long("runtime-path")
-                .required(true)
-                .takes_value(true)
-                .help("Path to runtime directory"),
-            )
-            .arg(
-              Arg::with_name("config_path")
-                .long("config-path")
-                .required(true)
-                .takes_value(true)
-                .help("Path to config directory"),
-            ),
-        )
-        .subcommand(
-          SubCommand::with_name("import_dialog")
-            .about("Display the Import Dialog")
-            .arg(
-              Arg::with_name("config_path")
-                .long("config-path")
-                .required(true)
-                .takes_value(true)
-                .help("Path to config directory"),
             ),
         )
         .subcommand(
