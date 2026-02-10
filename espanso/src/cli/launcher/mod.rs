@@ -28,7 +28,7 @@ use log::error;
 
 use super::{CliModule, CliModuleArgs};
 
-mod accessibility;
+pub mod accessibility;
 mod daemon;
 #[cfg(feature = "modulo")]
 mod edition_check;
