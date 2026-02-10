@@ -103,8 +103,28 @@
       "description": "If false, disable all notifications.",
       "type": "boolean"
     },
+    "open_file_menu": {
+      "description": "Settings for the tray menu Open file submenu.",
+      "type": "object",
+      "properties": {
+        "recent_files_count": {
+          "description": "Max entries for the global recent files list.",
+          "type": "number",
+          "default": 10
+        },
+        "recent_files_per_scope_count": {
+          "description": "Max entries for per-scope recent files lists.",
+          "type": "number",
+          "default": 10
+        }
+      }
+    },
+    "yaml_editor_path": {
+      "description": "Optional editor executable path to open YAML files.",
+      "type": "string"
+    },
     "toggle_key": {
-      "description": "Defines the key that disables/enables espanso when double pressed.",
+      "description": "Defines the key that disables/enables espanso when pressed multiple times.",
       "type": "string",
       "enum": [
         "OFF",
@@ -121,6 +141,12 @@
         "RIGHT_SHIFT",
         "RIGHT_META"
       ]
+    },
+    "toggle_key_press_count": {
+      "description": "Number of times the toggle key must be pressed to toggle espanso. Defaults to 2 (double press).",
+      "type": "integer",
+      "minimum": 1,
+      "default": 2
     },
     "win32_exclude_orphan_events": {
       "description": "If true, filter out keyboard events without an explicit HID device source on Windows. This is needed to filter out the software-generated events, including those from Espanso, but might need to be disabled when using some software-level keyboards. Disabling this option might conflict with the undo feature.",

@@ -17,7 +17,10 @@
  * along with modulo.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+pub mod export_dialog;
 pub mod form;
+pub mod import_dialog;
+pub mod match_explain_dialog;
 pub mod search;
 pub mod textview;
 pub mod troubleshooting;

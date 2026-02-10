@@ -17,7 +17,10 @@
  * along with espanso.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use std::thread::JoinHandle;
+use std::{
+    sync::{atomic::AtomicBool, Arc},
+    thread::JoinHandle,
+};
 
 use crate::path::Paths;
 use anyhow::Result;
@@ -50,6 +53,7 @@ use crate::{
                 },
                 multiplex::MultiplexAdapter,
                 open_config::ConfigPathProviderAdapter,
+                open_file_menu::OpenFileMenuProviderAdapter,
                 render::{
                     extension::{
                         choice::ChoiceSelectorAdapter, clipboard::ClipboardAdapter,
@@ -89,6 +93,7 @@ pub fn initialize_and_spawn(
     use_evdev_backend: bool,
     start_reason: Option<String>,
     ipc_event_receiver: Receiver<EventType>,
+    enabled_state: Arc<AtomicBool>,
 ) -> Result<JoinHandle<ExitMode>> {
     let handle = std::thread::Builder::new()
         .name("engine thread".to_string())
@@ -226,6 +231,8 @@ pub fn initialize_and_spawn(
             let renderer_adapter = RendererAdapter::new(&match_cache, &config_manager, &renderer);
             let path_provider = PathProviderAdapter::new(&paths);
             let config_path_provider = ConfigPathProviderAdapter::new(&paths);
+            let open_file_menu_provider =
+                OpenFileMenuProviderAdapter::new(&paths, config_manager.default());
 
             let disable_options =
                 process::middleware::disable::extract_disable_options(&*config_manager.default());
@@ -243,6 +250,7 @@ pub fn initialize_and_spawn(
                 &sequencer,
                 &path_provider,
                 &config_path_provider,
+                &open_file_menu_provider,
                 disable_options,
                 &config_manager,
                 &combined_match_cache,
@@ -252,6 +260,7 @@ pub fn initialize_and_spawn(
                 &combined_match_cache,
                 &notification_manager,
                 &config_manager,
+                Arc::clone(&enabled_state),
             );
 
             let event_injector = EventInjectorAdapter::new(&*injector, &config_manager);
@@ -262,6 +271,12 @@ pub fn initialize_and_spawn(
             let icon_adapter = IconHandlerAdapter::new(&*ui_remote);
             let secure_input_adapter = SecureInputManagerAdapter::new();
             let text_ui_adapter = TextUIHandlerAdapter::new(&modulo_text_ui, &paths);
+            let export_import_adapter =
+                dispatch::executor::export_import::ExportImportHandlerAdapter::new(
+                    &modulo_manager,
+                    &modulo_form_ui,
+                    &paths,
+                );
             let dispatcher = espanso_engine::dispatch::default(
                 &event_injector,
                 &clipboard_injector,
@@ -273,6 +288,7 @@ pub fn initialize_and_spawn(
                 &icon_adapter,
                 &secure_input_adapter,
                 &text_ui_adapter,
+                &export_import_adapter,
             );
 
             // Disable previously granted linux capabilities if not needed anymore

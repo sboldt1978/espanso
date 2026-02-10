@@ -95,8 +95,48 @@ macro_rules! generate_patchable_config {
           self.base.secure_input_notification()
         }
 
+        fn open_file_menu_recent_files_count(&self) -> usize {
+          self.base.open_file_menu_recent_files_count()
+        }
+
+        fn open_file_menu_recent_files_per_scope_count(&self) -> usize {
+          self.base.open_file_menu_recent_files_per_scope_count()
+        }
+
+        fn yaml_editor_path(&self) -> Option<String> {
+          self.base.yaml_editor_path()
+        }
+
         fn stats_enabled(&self) -> bool {
           self.base.stats_enabled()
+        }
+
+        fn triggermarker_prefix(&self) -> Option<String> {
+          self.base.triggermarker_prefix()
+        }
+
+        fn triggermarker_suffix(&self) -> Option<String> {
+          self.base.triggermarker_suffix()
+        }
+
+        fn triggermarker_replace_mode(&self) -> String {
+          self.base.triggermarker_replace_mode()
+        }
+
+        fn triggermarker_prefix_replace_mode(&self) -> Option<String> {
+          self.base.triggermarker_prefix_replace_mode()
+        }
+
+        fn triggermarker_suffix_replace_mode(&self) -> Option<String> {
+          self.base.triggermarker_suffix_replace_mode()
+        }
+
+        fn triggermarker_smart_chars(&self) -> Vec<String> {
+          self.base.triggermarker_smart_chars()
+        }
+
+        fn triggermarker_smart_remove_multiple(&self) -> bool {
+          self.base.triggermarker_smart_remove_multiple()
         }
       }
   };

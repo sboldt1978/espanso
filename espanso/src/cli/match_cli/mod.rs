@@ -20,6 +20,8 @@
 use super::{CliModule, CliModuleArgs};
 
 mod exec;
+mod expand;
+pub(crate) mod explain;
 mod list;
 
 pub fn new() -> CliModule {
@@ -48,10 +50,29 @@ fn match_main(args: CliModuleArgs) -> i32 {
             eprintln!("unable to exec match: {err:?}");
             return 1;
         }
+    } else if let Some(sub_args) = cli_args.subcommand_matches("explain") {
+        if let Err(err) = explain::explain_main(sub_args, config_store, match_store) {
+            eprintln!("unable to explain match: {err:?}");
+            return 1;
+        }
+    } else if let Some(sub_args) = cli_args.subcommand_matches("expand") {
+        return expand::expand_main(ExpandArgs {
+            cli_args: sub_args,
+            config_store: &*config_store,
+            match_store: &*match_store,
+            paths: &paths,
+        });
     } else {
         eprintln!("Invalid use, please run 'espanso match --help' to get more information.");
         return 1;
     }
 
     0
+}
+
+pub struct ExpandArgs<'a> {
+    pub cli_args: &'a clap::ArgMatches,
+    pub config_store: &'a dyn espanso_config::config::ConfigStore,
+    pub match_store: &'a dyn espanso_config::matches::store::MatchStore,
+    pub paths: &'a crate::path::Paths,
 }

@@ -24,9 +24,11 @@ use super::{
         action::{ActionMiddleware, EventSequenceProvider},
         alt_code_synthesizer::AltCodeSynthesizerMiddleware,
         cause::CauseCompensateMiddleware,
+        context_menu::OpenFileMenuProvider,
         cursor_hint::CursorHintMiddleware,
         delay_modifiers::{DelayForModifierReleaseMiddleware, ModifierStatusProvider},
         discard::EventsDiscardMiddleware,
+        enabled_state::EnabledStateMiddleware,
         markdown::MarkdownMiddleware,
         match_select::MatchSelectMiddleware,
         matcher::MatcherMiddleware,
@@ -52,6 +54,7 @@ use crate::{
     },
 };
 use std::collections::VecDeque;
+use std::sync::{atomic::AtomicBool, Arc};
 
 pub struct DefaultProcessor<'a> {
     event_queue: VecDeque<Event>,
@@ -71,6 +74,7 @@ impl<'a> DefaultProcessor<'a> {
         event_sequence_provider: &'a dyn EventSequenceProvider,
         path_provider: &'a dyn PathProvider,
         config_path_provider: &'a dyn ConfigPathProvider,
+        open_file_menu_provider: &'a dyn OpenFileMenuProvider,
         disable_options: DisableOptions,
         matcher_options_provider: &'a dyn MatcherMiddlewareConfigProvider,
         match_provider: &'a dyn MatchProvider,
@@ -80,12 +84,14 @@ impl<'a> DefaultProcessor<'a> {
         match_resolver: &'a dyn MatchResolver,
         notification_manager: &'a dyn NotificationManager,
         alt_code_synth_enabled_provider: &'a dyn AltCodeSynthEnabledProvider,
+        enabled_state: Arc<AtomicBool>,
     ) -> Self {
         Self {
             event_queue: VecDeque::new(),
             middleware: vec![
                 Box::new(EventsDiscardMiddleware::new()),
                 Box::new(DisableMiddleware::new(disable_options)),
+                Box::new(EnabledStateMiddleware::new(enabled_state)),
                 Box::new(IconStatusMiddleware::new()),
                 Box::new(AltCodeSynthesizerMiddleware::new(
                     alt_code_synth_enabled_provider,
@@ -97,7 +103,7 @@ impl<'a> DefaultProcessor<'a> {
                 )),
                 Box::new(MatchExecRequestMiddleware::new(match_resolver)),
                 Box::new(SuppressMiddleware::new(enabled_status_provider)),
-                Box::new(ContextMenuMiddleware::new()),
+                Box::new(ContextMenuMiddleware::new(open_file_menu_provider)),
                 Box::new(HotKeyMiddleware::new()),
                 Box::new(MatchSelectMiddleware::new(
                     match_filter,

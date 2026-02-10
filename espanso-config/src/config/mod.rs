@@ -86,6 +86,12 @@ pub trait Config: Send + Sync {
     // Defines the key that disables/enables espanso when double pressed
     fn toggle_key(&self) -> Option<ToggleKey>;
 
+    // Number of times the toggle key must be pressed to toggle espanso.
+    // Defaults to 2 (double press).
+    fn toggle_key_press_count(&self) -> u32 {
+        2
+    }
+
     // If true, instructs the daemon process to restart the worker (and refresh
     // the configuration) after a configuration file change is detected on disk.
     fn auto_restart(&self) -> bool;
@@ -150,6 +156,15 @@ pub trait Config: Send + Sync {
     // If false, avoid showing the `SecureInput`` notification on macOS
     fn secure_input_notification(&self) -> bool;
 
+    // Max entries for the global recent files list in the Open file menu.
+    fn open_file_menu_recent_files_count(&self) -> usize;
+
+    // Max entries for per-scope recent files lists in the Open file menu.
+    fn open_file_menu_recent_files_per_scope_count(&self) -> usize;
+
+    // Optional editor path for opening YAML files from the Open file menu.
+    fn yaml_editor_path(&self) -> Option<String>;
+
     // Stats: if false, disable recording expansions statistics.
     fn stats_enabled(&self) -> bool;
 
@@ -206,6 +221,34 @@ pub trait Config: Send + Sync {
     // in this issue: https://github.com/espanso/espanso/issues/745
     fn win32_keyboard_layout_cache_interval(&self) -> i64;
 
+    // Configurable trigger prefix that can be applied to all triggers.
+    // This allows users to define a common prefix without repeating it in every match.
+    fn triggermarker_prefix(&self) -> Option<String>;
+
+    // Configurable trigger suffix that can be applied to all triggers.
+    // This allows users to define a common suffix without repeating it in every match.
+    fn triggermarker_suffix(&self) -> Option<String>;
+
+    // Mode for applying trigger markers: "agnostic" (mechanical append) or "smart" (replace existing markers).
+    // Applies to both prefix and suffix unless overridden by specific modes.
+    fn triggermarker_replace_mode(&self) -> String;
+
+    // Override mode specifically for prefix application.
+    // If set, takes precedence over triggermarker_replace_mode for prefix.
+    fn triggermarker_prefix_replace_mode(&self) -> Option<String>;
+
+    // Override mode specifically for suffix application.
+    // If set, takes precedence over triggermarker_replace_mode for suffix.
+    fn triggermarker_suffix_replace_mode(&self) -> Option<String>;
+
+    // List of characters recognized as potential markers in smart mode.
+    // These characters will be removed and replaced when smart mode is active.
+    fn triggermarker_smart_chars(&self) -> Vec<String>;
+
+    // If true, remove all repeated identical leading/trailing smart characters.
+    // If false, remove only the first/last character.
+    fn triggermarker_smart_remove_multiple(&self) -> bool;
+
     #[allow(clippy::elidable_lifetime_names)]
     fn is_match<'a>(&self, app: &AppProperties<'a>) -> bool;
 
@@ -227,6 +270,7 @@ pub trait Config: Send + Sync {
         pre_paste_delay: {}
         paste_shortcut_event_delay: {}
         toggle_key: {:?}
+        toggle_key_press_count: {:?}
         auto_restart: {:?}
         restore_clipboard_delay: {:?}
         post_form_delay: {:?}
@@ -241,6 +285,9 @@ pub trait Config: Send + Sync {
         show_icon: {:?}
         show_notifications: {:?}
         secure_input_notification: {:?}
+        open_file_menu_recent_files_count: {:?}
+        open_file_menu_recent_files_per_scope_count: {:?}
+        yaml_editor_path: {:?}
 
         max_regex_buffer_size: {:?}
 
@@ -248,6 +295,14 @@ pub trait Config: Send + Sync {
         x11_use_xdotool_backend: {:?}
         win32_exclude_orphan_events: {:?}
         win32_keyboard_layout_cache_interval: {:?}
+
+        triggermarker_prefix: {:?}
+        triggermarker_suffix: {:?}
+        triggermarker_replace_mode: {:?}
+        triggermarker_prefix_replace_mode: {:?}
+        triggermarker_suffix_replace_mode: {:?}
+        triggermarker_smart_chars: {:?}
+        triggermarker_smart_remove_multiple: {:?}
 
         match_paths: {:#?}
       ",
@@ -266,6 +321,7 @@ pub trait Config: Send + Sync {
           self.pre_paste_delay(),
           self.paste_shortcut_event_delay(),
           self.toggle_key(),
+          self.toggle_key_press_count(),
           self.auto_restart(),
           self.restore_clipboard_delay(),
           self.post_form_delay(),
@@ -280,6 +336,9 @@ pub trait Config: Send + Sync {
           self.show_icon(),
           self.show_notifications(),
           self.secure_input_notification(),
+          self.open_file_menu_recent_files_count(),
+          self.open_file_menu_recent_files_per_scope_count(),
+          self.yaml_editor_path(),
 
           self.max_regex_buffer_size(),
 
@@ -287,6 +346,14 @@ pub trait Config: Send + Sync {
           self.x11_use_xdotool_backend(),
           self.win32_exclude_orphan_events(),
           self.win32_keyboard_layout_cache_interval(),
+
+          self.triggermarker_prefix(),
+          self.triggermarker_suffix(),
+          self.triggermarker_replace_mode(),
+          self.triggermarker_prefix_replace_mode(),
+          self.triggermarker_suffix_replace_mode(),
+          self.triggermarker_smart_chars(),
+          self.triggermarker_smart_remove_multiple(),
 
           self.match_paths(),
         }

@@ -32,6 +32,14 @@ pub struct YAMLStatsConfig {
     pub enabled: Option<bool>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct YAMLOpenFileMenuConfig {
+    #[serde(default)]
+    pub recent_files_count: Option<usize>,
+    #[serde(default)]
+    pub recent_files_per_scope_count: Option<usize>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct YAMLConfig {
     #[serde(default)]
@@ -51,6 +59,9 @@ pub struct YAMLConfig {
 
     #[serde(default)]
     pub toggle_key: Option<String>,
+
+    #[serde(default)]
+    pub toggle_key_press_count: Option<u32>,
 
     #[serde(default)]
     pub auto_restart: Option<bool>,
@@ -125,6 +136,12 @@ pub struct YAMLConfig {
     pub secure_input_notification: Option<bool>,
 
     #[serde(default)]
+    pub open_file_menu: Option<YAMLOpenFileMenuConfig>,
+
+    #[serde(default)]
+    pub yaml_editor_path: Option<String>,
+
+    #[serde(default)]
     pub emulate_alt_codes: Option<bool>,
 
     #[serde(default)]
@@ -141,6 +158,28 @@ pub struct YAMLConfig {
 
     #[serde(default)]
     pub x11_use_xdotool_backend: Option<bool>,
+
+    // Trigger marker configuration
+    #[serde(default)]
+    pub triggermarker_prefix: Option<String>,
+
+    #[serde(default)]
+    pub triggermarker_suffix: Option<String>,
+
+    #[serde(default)]
+    pub triggermarker_replace_mode: Option<String>,
+
+    #[serde(default)]
+    pub triggermarker_prefix_replace_mode: Option<String>,
+
+    #[serde(default)]
+    pub triggermarker_suffix_replace_mode: Option<String>,
+
+    #[serde(default)]
+    pub triggermarker_smart_chars: Option<Vec<String>>,
+
+    #[serde(default)]
+    pub triggermarker_smart_remove_multiple: Option<bool>,
 
     // Include/Exclude
     #[serde(default)]
@@ -196,6 +235,8 @@ impl TryFrom<YAMLConfig> for ParsedConfig {
     type Error = anyhow::Error;
 
     fn try_from(yaml_config: YAMLConfig) -> Result<Self, Self::Error> {
+        let open_file_menu = yaml_config.open_file_menu;
+
         Ok(Self {
             label: yaml_config.label,
             backend: yaml_config.backend,
@@ -203,6 +244,7 @@ impl TryFrom<YAMLConfig> for ParsedConfig {
             clipboard_threshold: yaml_config.clipboard_threshold,
             auto_restart: yaml_config.auto_restart,
             toggle_key: yaml_config.toggle_key,
+            toggle_key_press_count: yaml_config.toggle_key_press_count,
             preserve_clipboard: yaml_config.preserve_clipboard,
             paste_shortcut: yaml_config.paste_shortcut,
             disable_x11_fast_inject: yaml_config.disable_x11_fast_inject,
@@ -231,6 +273,12 @@ impl TryFrom<YAMLConfig> for ParsedConfig {
             show_icon: yaml_config.show_icon,
             show_notifications: yaml_config.show_notifications,
             secure_input_notification: yaml_config.secure_input_notification,
+            open_file_menu_recent_files_count: open_file_menu
+                .as_ref()
+                .and_then(|menu| menu.recent_files_count),
+            open_file_menu_recent_files_per_scope_count: open_file_menu
+                .and_then(|menu| menu.recent_files_per_scope_count),
+            yaml_editor_path: yaml_config.yaml_editor_path,
 
             pre_paste_delay: yaml_config.pre_paste_delay,
             restore_clipboard_delay: yaml_config.restore_clipboard_delay,
@@ -248,6 +296,14 @@ impl TryFrom<YAMLConfig> for ParsedConfig {
             win32_keyboard_layout_cache_interval: yaml_config.win32_keyboard_layout_cache_interval,
             x11_use_xclip_backend: yaml_config.x11_use_xclip_backend,
             x11_use_xdotool_backend: yaml_config.x11_use_xdotool_backend,
+
+            triggermarker_prefix: yaml_config.triggermarker_prefix,
+            triggermarker_suffix: yaml_config.triggermarker_suffix,
+            triggermarker_replace_mode: yaml_config.triggermarker_replace_mode,
+            triggermarker_prefix_replace_mode: yaml_config.triggermarker_prefix_replace_mode,
+            triggermarker_suffix_replace_mode: yaml_config.triggermarker_suffix_replace_mode,
+            triggermarker_smart_chars: yaml_config.triggermarker_smart_chars,
+            triggermarker_smart_remove_multiple: yaml_config.triggermarker_smart_remove_multiple,
 
             use_standard_includes: yaml_config.use_standard_includes,
             includes: yaml_config.includes,
@@ -281,6 +337,7 @@ mod tests {
     clipboard_threshold: 200
     pre_paste_delay: 300
     toggle_key: CTRL
+    toggle_key_press_count: 3
     auto_restart: false
     preserve_clipboard: false
     restore_clipboard_delay: 400
@@ -306,6 +363,10 @@ mod tests {
     show_icon: false
     show_notifications: false
     secure_input_notification: false
+    open_file_menu:
+      recent_files_count: 7
+      recent_files_per_scope_count: 3
+    yaml_editor_path: /usr/bin/code
     post_form_delay: 300
     max_form_width: 700
     max_form_height: 500
@@ -367,6 +428,9 @@ mod tests {
                 show_icon: Some(false),
                 show_notifications: Some(false),
                 secure_input_notification: Some(false),
+                open_file_menu_recent_files_count: Some(7),
+                open_file_menu_recent_files_per_scope_count: Some(3),
+                yaml_editor_path: Some("/usr/bin/code".to_string()),
                 stats_enabled: None,
                 emulate_alt_codes: Some(true),
                 max_regex_buffer_size: Some(30),
@@ -379,10 +443,19 @@ mod tests {
                 x11_use_xclip_backend: Some(true),
                 x11_use_xdotool_backend: Some(true),
 
+                triggermarker_prefix: None,
+                triggermarker_suffix: None,
+                triggermarker_replace_mode: None,
+                triggermarker_prefix_replace_mode: None,
+                triggermarker_suffix_replace_mode: None,
+                triggermarker_smart_chars: None,
+                triggermarker_smart_remove_multiple: None,
+
                 pre_paste_delay: Some(300),
                 evdev_modifier_delay: Some(40),
 
                 toggle_key: Some("CTRL".to_string()),
+                toggle_key_press_count: Some(3),
                 word_separators: Some(vec!["'".to_owned(), ".".to_owned()]),
 
                 use_standard_includes: Some(true),

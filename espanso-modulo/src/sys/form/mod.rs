@@ -55,6 +55,7 @@ pub mod types {
         Label(LabelMetadata),
         Text(TextMetadata),
         Choice(ChoiceMetadata),
+        Checkbox(bool),
     }
 
     #[derive(Debug)]
@@ -96,8 +97,8 @@ mod interop {
 
     use super::super::interop::{
         ChoiceMetadata, ChoiceType_DROPDOWN, ChoiceType_LIST, FieldMetadata, FieldType,
-        FieldType_CHOICE, FieldType_LABEL, FieldType_ROW, FieldType_TEXT, FormMetadata,
-        Interoperable, LabelMetadata, RowMetadata, TextMetadata,
+        FieldType_CHECKBOX, FieldType_CHOICE, FieldType_LABEL, FieldType_ROW, FieldType_TEXT,
+        FormMetadata, Interoperable, LabelMetadata, RowMetadata, TextMetadata,
     };
     use super::types;
     use std::ffi::{c_void, CString};
@@ -183,6 +184,7 @@ mod interop {
                 types::FieldType::Label(_) => FieldType_LABEL,
                 types::FieldType::Text(_) => FieldType_TEXT,
                 types::FieldType::Choice(_) => FieldType_CHOICE,
+                types::FieldType::Checkbox(_) => FieldType_CHECKBOX,
                 types::FieldType::Unknown => panic!("unknown field type"),
             };
 
@@ -204,6 +206,7 @@ mod interop {
                     let owned_metadata: OwnedChoiceMetadata = metadata.into();
                     Box::new(owned_metadata)
                 }
+                types::FieldType::Checkbox(default_value) => Box::new(default_value),
                 types::FieldType::Unknown => panic!("unknown field type"),
             };
 
@@ -337,6 +340,12 @@ mod interop {
 
         metadata: Vec<FieldMetadata>,
         interop: Box<RowMetadata>,
+    }
+
+    impl Interoperable for bool {
+        fn as_ptr(&self) -> *const c_void {
+            std::ptr::from_ref(self) as *const c_void
+        }
     }
 
     impl Interoperable for OwnedRowMetadata {

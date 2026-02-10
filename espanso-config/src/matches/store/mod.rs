@@ -23,9 +23,18 @@ use super::{Match, Variable};
 
 mod default;
 
+/// Information about a match including its source file
+#[derive(Debug, Clone)]
+pub struct MatchInfo<'a> {
+    pub m: &'a Match,
+    pub source_file: &'a str,
+}
+
 pub trait MatchStore: Send {
     fn query(&'_ self, paths: &[String]) -> MatchSet<'_>;
     fn loaded_paths(&self) -> Vec<String>;
+    /// Query all matches with their source file information
+    fn query_with_sources(&'_ self, paths: &[String]) -> Vec<MatchInfo<'_>>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,8 +43,11 @@ pub struct MatchSet<'a> {
     pub global_vars: Vec<&'a Variable>,
 }
 
-pub fn load(paths: &[String]) -> (impl MatchStore, Vec<NonFatalErrorSet>) {
+pub fn load(
+    paths: &[String],
+    config: &dyn crate::config::Config,
+) -> (impl MatchStore, Vec<NonFatalErrorSet>) {
     // TODO: here we can replace the DefaultMatchStore with a caching wrapper
     // that returns the same response for the given "paths" query
-    default::DefaultMatchStore::load(paths)
+    default::DefaultMatchStore::load(paths, config)
 }

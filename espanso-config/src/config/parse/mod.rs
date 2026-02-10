@@ -33,6 +33,7 @@ pub struct ParsedConfig {
     pub auto_restart: Option<bool>,
     pub preserve_clipboard: Option<bool>,
     pub toggle_key: Option<String>,
+    pub toggle_key_press_count: Option<u32>,
     pub paste_shortcut: Option<String>,
     pub disable_x11_fast_inject: Option<bool>,
     pub word_separators: Option<Vec<String>>,
@@ -44,6 +45,9 @@ pub struct ParsedConfig {
     pub show_notifications: Option<bool>,
     pub show_icon: Option<bool>,
     pub secure_input_notification: Option<bool>,
+    pub open_file_menu_recent_files_count: Option<usize>,
+    pub open_file_menu_recent_files_per_scope_count: Option<usize>,
+    pub yaml_editor_path: Option<String>,
     pub post_form_delay: Option<usize>,
     pub max_form_width: Option<usize>,
     pub max_form_height: Option<usize>,
@@ -54,6 +58,15 @@ pub struct ParsedConfig {
     pub win32_keyboard_layout_cache_interval: Option<i64>,
     pub x11_use_xclip_backend: Option<bool>,
     pub x11_use_xdotool_backend: Option<bool>,
+
+    // Trigger marker configuration
+    pub triggermarker_prefix: Option<String>,
+    pub triggermarker_suffix: Option<String>,
+    pub triggermarker_replace_mode: Option<String>,
+    pub triggermarker_prefix_replace_mode: Option<String>,
+    pub triggermarker_suffix_replace_mode: Option<String>,
+    pub triggermarker_smart_chars: Option<Vec<String>>,
+    pub triggermarker_smart_remove_multiple: Option<bool>,
 
     pub pre_paste_delay: Option<usize>,
     pub restore_clipboard_delay: Option<usize>,
