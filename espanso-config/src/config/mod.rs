@@ -163,7 +163,7 @@ pub trait Config: Send + Sync {
     fn open_file_menu_recent_files_per_scope_count(&self) -> usize;
 
     // Optional editor path for opening YAML files from the Open file menu.
-    fn open_file_menu_yaml_editor_path(&self) -> Option<String>;
+    fn yaml_editor_path(&self) -> Option<String>;
 
     // Stats: if false, disable recording expansions statistics.
     fn stats_enabled(&self) -> bool;
@@ -287,7 +287,7 @@ pub trait Config: Send + Sync {
         secure_input_notification: {:?}
         open_file_menu_recent_files_count: {:?}
         open_file_menu_recent_files_per_scope_count: {:?}
-        open_file_menu_yaml_editor_path: {:?}
+        yaml_editor_path: {:?}
 
         max_regex_buffer_size: {:?}
 
@@ -338,7 +338,7 @@ pub trait Config: Send + Sync {
           self.secure_input_notification(),
           self.open_file_menu_recent_files_count(),
           self.open_file_menu_recent_files_per_scope_count(),
-          self.open_file_menu_yaml_editor_path(),
+          self.yaml_editor_path(),
 
           self.max_regex_buffer_size(),
 

@@ -174,7 +174,7 @@ pub fn match_explain_main(
                     return;
                 }
             };
-            let editor_path = config_store.default().open_file_menu_yaml_editor_path();
+            let editor_path = config_store.default().yaml_editor_path();
             if let Err(err) =
                 open_file_with_preferred_editor(Path::new(path), editor_path.as_deref())
             {
