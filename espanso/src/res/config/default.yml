@@ -55,7 +55,6 @@
 # open_file_menu:
 #   recent_files_count: 10
 #   recent_files_per_scope_count: 10
-
 # Path to the editor to use for opening YAML files.
 # yaml_editor_path: /path/to/editor
 

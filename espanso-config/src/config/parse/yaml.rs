@@ -277,7 +277,6 @@ impl TryFrom<YAMLConfig> for ParsedConfig {
                 .as_ref()
                 .and_then(|menu| menu.recent_files_count),
             open_file_menu_recent_files_per_scope_count: open_file_menu
-                .as_ref()
                 .and_then(|menu| menu.recent_files_per_scope_count),
             yaml_editor_path: yaml_config.yaml_editor_path,
 
