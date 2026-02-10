@@ -17,7 +17,7 @@
  * along with espanso.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-use super::{MatchSet, MatchStore};
+use super::{MatchInfo, MatchSet, MatchStore};
 use crate::{
     counter::StructId,
     error::NonFatalErrorSet,
@@ -25,7 +25,7 @@ use crate::{
 };
 use anyhow::Context;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     path::PathBuf,
 };
 
@@ -34,7 +34,10 @@ pub struct DefaultMatchStore {
 }
 
 impl DefaultMatchStore {
-    pub fn load(paths: &[String], config: &dyn crate::config::Config) -> (Self, Vec<NonFatalErrorSet>) {
+    pub fn load(
+        paths: &[String],
+        config: &dyn crate::config::Config,
+    ) -> (Self, Vec<NonFatalErrorSet>) {
         let mut groups = HashMap::new();
         let mut non_fatal_error_sets = Vec::new();
 
@@ -42,6 +45,7 @@ impl DefaultMatchStore {
         // we have to load them recursively starting from the
         // top-level ones.
         load_match_groups_recursively(&mut groups, paths, &mut non_fatal_error_sets, config);
+        warn_duplicate_triggers(&groups);
 
         (Self { groups }, non_fatal_error_sets)
     }
@@ -73,6 +77,22 @@ impl MatchStore for DefaultMatchStore {
 
     fn loaded_paths(&self) -> Vec<String> {
         self.groups.keys().cloned().collect()
+    }
+
+    fn query_with_sources(&'_ self, paths: &[String]) -> Vec<MatchInfo<'_>> {
+        let mut result = Vec::new();
+        let mut visited_paths = HashSet::new();
+        let mut visited_matches = HashSet::new();
+
+        query_matches_with_sources(
+            &self.groups,
+            &mut visited_paths,
+            &mut visited_matches,
+            &mut result,
+            paths,
+        );
+
+        result
     }
 }
 
@@ -148,6 +168,84 @@ fn query_matches_for_paths<'a>(
     }
 }
 
+fn query_matches_with_sources<'a>(
+    groups: &'a HashMap<String, MatchGroup>,
+    visited_paths: &mut HashSet<String>,
+    visited_matches: &mut HashSet<StructId>,
+    result: &mut Vec<MatchInfo<'a>>,
+    paths: &[String],
+) {
+    for path in paths {
+        if !visited_paths.contains(path) {
+            visited_paths.insert(path.clone());
+
+            if let Some(group) = groups.get(path) {
+                // First process imports
+                query_matches_with_sources(
+                    groups,
+                    visited_paths,
+                    visited_matches,
+                    result,
+                    &group.imports,
+                );
+
+                // Then add matches from this group with source info
+                // We need to get the key from the groups map to have the correct lifetime
+                if let Some((source_file, _)) = groups.get_key_value(path) {
+                    for m in &group.matches {
+                        if !visited_matches.contains(&m.id) {
+                            result.push(MatchInfo { m, source_file });
+                            visited_matches.insert(m.id);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[allow(dead_code)]
+fn warn_duplicate_triggers(groups: &HashMap<String, MatchGroup>) {
+    let duplicates = find_duplicate_triggers(groups);
+
+    for (trigger, paths) in duplicates {
+        eprintln!(
+            "warning: duplicate trigger '{}' found in: {}",
+            trigger,
+            paths.join(", ")
+        );
+    }
+}
+
+#[allow(dead_code)]
+fn find_duplicate_triggers(groups: &HashMap<String, MatchGroup>) -> BTreeMap<String, Vec<String>> {
+    let mut triggers: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+
+    for (path, group) in groups {
+        for m in &group.matches {
+            if let crate::matches::MatchCause::Trigger(cause) = &m.cause {
+                for trigger in &cause.triggers {
+                    triggers
+                        .entry(trigger.clone())
+                        .or_default()
+                        .insert(path.clone());
+                }
+            }
+        }
+    }
+
+    triggers
+        .into_iter()
+        .filter_map(|(trigger, paths)| {
+            if paths.len() > 1 {
+                Some((trigger, paths.into_iter().collect()))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,60 +254,158 @@ mod tests {
         util::tests::use_test_directory,
     };
     use std::fs::create_dir_all;
-
     // MockConfig for testing
     struct MockConfig;
-
     impl crate::config::Config for MockConfig {
-        fn id(&self) -> i32 { 0 }
-        fn label(&self) -> &'static str { "mock" }
-        fn match_paths(&self) -> &[String] { &[] }
-        fn backend(&self) -> crate::config::Backend { crate::config::Backend::Inject }
-        fn enable(&self) -> bool { true }
-        fn clipboard_threshold(&self) -> usize { 100 }
-        fn pre_paste_delay(&self) -> usize { 100 }
-        fn paste_shortcut_event_delay(&self) -> usize { 10 }
-        fn paste_shortcut(&self) -> Option<String> { None }
-        fn disable_x11_fast_inject(&self) -> bool { false }
-        fn toggle_key(&self) -> Option<crate::config::ToggleKey> { None }
-        fn auto_restart(&self) -> bool { true }
-        fn preserve_clipboard(&self) -> bool { true }
-        fn restore_clipboard_delay(&self) -> usize { 300 }
-        fn inject_delay(&self) -> Option<usize> { None }
-        fn key_delay(&self) -> Option<usize> { None }
-        fn evdev_modifier_delay(&self) -> Option<usize> { None }
-        fn word_separators(&self) -> Vec<String> { vec![" ".to_string()] }
-        fn backspace_limit(&self) -> usize { 5 }
-        fn apply_patch(&self) -> bool { true }
-        fn keyboard_layout(&self) -> Option<crate::config::RMLVOConfig> { None }
-        fn search_trigger(&self) -> Option<String> { None }
-        fn search_shortcut(&self) -> Option<String> { None }
-        fn undo_backspace(&self) -> bool { true }
-        fn show_notifications(&self) -> bool { true }
-        fn show_icon(&self) -> bool { true }
-        fn secure_input_notification(&self) -> bool { true }
-        fn stats_enabled(&self) -> bool { true }
-        fn post_form_delay(&self) -> usize { 200 }
-        fn max_form_width(&self) -> usize { 800 }
-        fn max_form_height(&self) -> usize { 600 }
-        fn max_regex_buffer_size(&self) -> usize { 30 }
-        fn post_search_delay(&self) -> usize { 200 }
-        fn emulate_alt_codes(&self) -> bool { false }
-        fn x11_use_xclip_backend(&self) -> bool { false }
-        fn x11_use_xdotool_backend(&self) -> bool { false }
-        fn win32_exclude_orphan_events(&self) -> bool { true }
-        fn win32_keyboard_layout_cache_interval(&self) -> i64 { 2000 }
-        fn is_match(&self, _app: &crate::config::AppProperties) -> bool { true }
+        fn id(&self) -> i32 {
+            0
+        }
+        fn label(&self) -> &'static str {
+            "mock"
+        }
+        fn match_paths(&self) -> &[String] {
+            &[]
+        }
+        fn backend(&self) -> crate::config::Backend {
+            crate::config::Backend::Inject
+        }
+        fn enable(&self) -> bool {
+            true
+        }
+        fn clipboard_threshold(&self) -> usize {
+            100
+        }
+        fn pre_paste_delay(&self) -> usize {
+            100
+        }
+        fn paste_shortcut_event_delay(&self) -> usize {
+            10
+        }
+        fn paste_shortcut(&self) -> Option<String> {
+            None
+        }
+        fn disable_x11_fast_inject(&self) -> bool {
+            false
+        }
+        fn toggle_key(&self) -> Option<crate::config::ToggleKey> {
+            None
+        }
+        fn auto_restart(&self) -> bool {
+            true
+        }
+        fn preserve_clipboard(&self) -> bool {
+            true
+        }
+        fn restore_clipboard_delay(&self) -> usize {
+            300
+        }
+        fn inject_delay(&self) -> Option<usize> {
+            None
+        }
+        fn key_delay(&self) -> Option<usize> {
+            None
+        }
+        fn evdev_modifier_delay(&self) -> Option<usize> {
+            None
+        }
+        fn word_separators(&self) -> Vec<String> {
+            vec![" ".to_string()]
+        }
+        fn backspace_limit(&self) -> usize {
+            5
+        }
+        fn apply_patch(&self) -> bool {
+            true
+        }
+        fn keyboard_layout(&self) -> Option<crate::config::RMLVOConfig> {
+            None
+        }
+        fn search_trigger(&self) -> Option<String> {
+            None
+        }
+        fn search_shortcut(&self) -> Option<String> {
+            None
+        }
+        fn undo_backspace(&self) -> bool {
+            true
+        }
+        fn show_notifications(&self) -> bool {
+            true
+        }
+        fn show_icon(&self) -> bool {
+            true
+        }
+        fn secure_input_notification(&self) -> bool {
+            true
+        }
+        fn open_file_menu_recent_files_count(&self) -> usize {
+            10
+        }
+        fn open_file_menu_recent_files_per_scope_count(&self) -> usize {
+            10
+        }
+        fn yaml_editor_path(&self) -> Option<String> {
+            None
+        }
+        fn stats_enabled(&self) -> bool {
+            true
+        }
+        fn post_form_delay(&self) -> usize {
+            200
+        }
+        fn max_form_width(&self) -> usize {
+            800
+        }
+        fn max_form_height(&self) -> usize {
+            600
+        }
+        fn max_regex_buffer_size(&self) -> usize {
+            30
+        }
+        fn post_search_delay(&self) -> usize {
+            200
+        }
+        fn emulate_alt_codes(&self) -> bool {
+            false
+        }
+        fn x11_use_xclip_backend(&self) -> bool {
+            false
+        }
+        fn x11_use_xdotool_backend(&self) -> bool {
+            false
+        }
+        fn win32_exclude_orphan_events(&self) -> bool {
+            true
+        }
+        fn win32_keyboard_layout_cache_interval(&self) -> i64 {
+            2000
+        }
+        fn is_match(&self, _app: &crate::config::AppProperties) -> bool {
+            true
+        }
 
-        fn triggermarker_prefix(&self) -> Option<String> { None }
-        fn triggermarker_suffix(&self) -> Option<String> { None }
-        fn triggermarker_replace_mode(&self) -> String { "agnostic".to_string() }
-        fn triggermarker_prefix_replace_mode(&self) -> Option<String> { None }
-        fn triggermarker_suffix_replace_mode(&self) -> Option<String> { None }
-        fn triggermarker_smart_chars(&self) -> Vec<String> { vec![":".to_string(), ";".to_string()] }
-        fn triggermarker_smart_remove_multiple(&self) -> bool { false }
+        fn triggermarker_prefix(&self) -> Option<String> {
+            None
+        }
+        fn triggermarker_suffix(&self) -> Option<String> {
+            None
+        }
+        fn triggermarker_replace_mode(&self) -> String {
+            "agnostic".to_string()
+        }
+        fn triggermarker_prefix_replace_mode(&self) -> Option<String> {
+            None
+        }
+        fn triggermarker_suffix_replace_mode(&self) -> Option<String> {
+            None
+        }
+        fn triggermarker_smart_chars(&self) -> Vec<String> {
+            vec![":".to_string(), ";".to_string()]
+        }
+        fn triggermarker_smart_remove_multiple(&self) -> bool {
+            false
+        }
     }
-
     fn create_match(trigger: &str, replace: &str) -> Match {
         Match {
             cause: MatchCause::Trigger(TriggerCause {
@@ -241,6 +437,33 @@ mod tests {
 
     fn create_vars(vars: &[&str]) -> Vec<Variable> {
         vars.iter().map(|var| create_test_var(var)).collect()
+    }
+
+    #[test]
+    fn duplicate_triggers_detected_across_groups() {
+        let mut groups = HashMap::new();
+
+        let first_group = MatchGroup {
+            matches: create_matches(&[("hello", "world")]),
+            ..Default::default()
+        };
+
+        let second_group = MatchGroup {
+            matches: create_matches(&[("hello", "planet"), ("bye", "now")]),
+            ..Default::default()
+        };
+
+        groups.insert("base.yml".to_string(), first_group);
+        groups.insert("other.yml".to_string(), second_group);
+
+        let duplicates = find_duplicate_triggers(&groups);
+        let paths = duplicates.get("hello").expect("expected duplicate trigger");
+
+        assert_eq!(
+            paths,
+            &vec!["base.yml".to_string(), "other.yml".to_string()]
+        );
+        assert!(!duplicates.contains_key("bye"));
     }
 
     #[test]
@@ -647,10 +870,13 @@ mod tests {
             )
             .unwrap();
 
-            let (match_store, non_fatal_error_sets) = DefaultMatchStore::load(&[
-                base_file.to_string_lossy().to_string(),
-                sub_file.to_string_lossy().to_string(),
-            ], &MockConfig);
+            let (match_store, non_fatal_error_sets) = DefaultMatchStore::load(
+                &[
+                    base_file.to_string_lossy().to_string(),
+                    sub_file.to_string_lossy().to_string(),
+                ],
+                &MockConfig,
+            );
             assert_eq!(non_fatal_error_sets.len(), 0);
 
             let match_set = match_store.query(&[

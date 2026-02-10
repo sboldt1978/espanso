@@ -112,6 +112,9 @@ pub struct YAMLMatch {
     pub label: Option<String>,
 
     #[serde(default)]
+    pub enabled: Option<bool>,
+
+    #[serde(default)]
     pub trigger: Option<String>,
 
     #[serde(default)]
@@ -364,9 +367,18 @@ matches:
         .unwrap();
 
         let defaults = yaml_group.match_defaults.as_ref().unwrap();
-        assert_eq!(defaults.triggermarker_replace_mode, Some("smart".to_string()));
-        assert_eq!(defaults.triggermarker_prefix_replace_mode, Some("agnostic".to_string()));
-        assert_eq!(defaults.triggermarker_smart_chars, Some(vec![":".to_string(), ";".to_string()]));
+        assert_eq!(
+            defaults.triggermarker_replace_mode,
+            Some("smart".to_string())
+        );
+        assert_eq!(
+            defaults.triggermarker_prefix_replace_mode,
+            Some("agnostic".to_string())
+        );
+        assert_eq!(
+            defaults.triggermarker_smart_chars,
+            Some(vec![":".to_string(), ";".to_string()])
+        );
         assert_eq!(defaults.triggermarker_smart_remove_multiple, Some(true));
     }
 

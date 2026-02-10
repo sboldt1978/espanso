@@ -192,6 +192,10 @@ impl Config for ResolvedConfig {
         }
     }
 
+    fn toggle_key_press_count(&self) -> u32 {
+        self.parsed.toggle_key_press_count.unwrap_or(2)
+    }
+
     fn preserve_clipboard(&self) -> bool {
         self.parsed.preserve_clipboard.unwrap_or(true)
     }
@@ -304,6 +308,20 @@ impl Config for ResolvedConfig {
 
     fn secure_input_notification(&self) -> bool {
         self.parsed.secure_input_notification.unwrap_or(true)
+    }
+
+    fn open_file_menu_recent_files_count(&self) -> usize {
+        self.parsed.open_file_menu_recent_files_count.unwrap_or(10)
+    }
+
+    fn open_file_menu_recent_files_per_scope_count(&self) -> usize {
+        self.parsed
+            .open_file_menu_recent_files_per_scope_count
+            .unwrap_or_else(|| self.open_file_menu_recent_files_count())
+    }
+
+    fn yaml_editor_path(&self) -> Option<String> {
+        self.parsed.yaml_editor_path.clone()
     }
 
     fn stats_enabled(&self) -> bool {
@@ -419,9 +437,18 @@ impl ResolvedConfig {
         // Validate triggermarker configuration
         Self::validate_triggermarker(config.triggermarker_prefix.as_ref(), "triggermarker_prefix")?;
         Self::validate_triggermarker(config.triggermarker_suffix.as_ref(), "triggermarker_suffix")?;
-        Self::validate_triggermarker_mode(config.triggermarker_replace_mode.as_ref(), "triggermarker_replace_mode")?;
-        Self::validate_triggermarker_mode(config.triggermarker_prefix_replace_mode.as_ref(), "triggermarker_prefix_replace_mode")?;
-        Self::validate_triggermarker_mode(config.triggermarker_suffix_replace_mode.as_ref(), "triggermarker_suffix_replace_mode")?;
+        Self::validate_triggermarker_mode(
+            config.triggermarker_replace_mode.as_ref(),
+            "triggermarker_replace_mode",
+        )?;
+        Self::validate_triggermarker_mode(
+            config.triggermarker_prefix_replace_mode.as_ref(),
+            "triggermarker_prefix_replace_mode",
+        )?;
+        Self::validate_triggermarker_mode(
+            config.triggermarker_suffix_replace_mode.as_ref(),
+            "triggermarker_suffix_replace_mode",
+        )?;
 
         // Extract the base directory
         let base_dir = path
@@ -482,6 +509,7 @@ impl ResolvedConfig {
             paste_shortcut_event_delay,
             disable_x11_fast_inject,
             toggle_key,
+            toggle_key_press_count,
             inject_delay,
             key_delay,
             evdev_modifier_delay,
@@ -494,6 +522,9 @@ impl ResolvedConfig {
             show_icon,
             show_notifications,
             secure_input_notification,
+            open_file_menu_recent_files_count,
+            open_file_menu_recent_files_per_scope_count,
+            yaml_editor_path,
             emulate_alt_codes,
             post_form_delay,
             max_form_width,
