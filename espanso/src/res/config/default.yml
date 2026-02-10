@@ -55,6 +55,8 @@
 # open_file_menu:
 #   recent_files_count: 10
 #   recent_files_per_scope_count: 10
-#   yaml_editor_path: /path/to/editor
+
+# Path to the editor to use for opening YAML files.
+# yaml_editor_path: /path/to/editor
 
 # For a list of all the available options, visit the official docs at: https://espanso.org/docs/

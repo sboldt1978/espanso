@@ -116,12 +116,12 @@
           "description": "Max entries for per-scope recent files lists.",
           "type": "number",
           "default": 10
-        },
-        "yaml_editor_path": {
-          "description": "Optional editor executable path to open YAML files from the menu.",
-          "type": "string"
         }
       }
+    },
+    "yaml_editor_path": {
+      "description": "Optional editor executable path to open YAML files.",
+      "type": "string"
     },
     "toggle_key": {
       "description": "Defines the key that disables/enables espanso when pressed multiple times.",
