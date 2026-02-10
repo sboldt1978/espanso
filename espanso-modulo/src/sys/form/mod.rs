@@ -344,7 +344,7 @@ mod interop {
 
     impl Interoperable for bool {
         fn as_ptr(&self) -> *const c_void {
-            std::ptr::from_ref::<bool>(self) as *const c_void
+            std::ptr::from_ref(self) as *const c_void
         }
     }
 
