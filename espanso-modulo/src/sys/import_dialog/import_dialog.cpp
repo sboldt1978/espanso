@@ -20,6 +20,7 @@
 #include "../common/common.h"
 #include "../interop/interop.h"
 #include <wx/clipbrd.h>
+#include <wx/dataobj.h>
 #include <wx/statline.h>
 
 #ifdef __WXMSW__
@@ -67,6 +68,10 @@ private:
                      wxCheckBox *clearCheckbox, int status, int prevStatus);
     void UpdateImportButtonState();
 
+    // Clipboard helpers
+    wxString ExtractPlainTextFromHtml(const wxString &html);
+    wxString ExtractPlainTextFromRtf(const wxString &rtf);
+
     // UI controls
     wxPanel *m_panel;
     wxTextCtrl *m_inputText;
@@ -100,6 +105,58 @@ private:
     int m_prevMatchesStatus;
     int m_prevPackagesStatus;
 };
+
+static wxString DecodeHtmlEntities(const wxString &input) {
+    wxString out;
+    out.reserve(input.length());
+
+    for (size_t i = 0; i < input.length(); i++) {
+        if (input[i] != '&') {
+            out.Append(input[i]);
+            continue;
+        }
+
+        size_t semi = input.find(';', i + 1);
+        if (semi == wxString::npos) {
+            out.Append(input[i]);
+            continue;
+        }
+
+        wxString entity = input.Mid(i + 1, semi - i - 1);
+        if (entity == "amp") {
+            out.Append('&');
+        } else if (entity == "lt") {
+            out.Append('<');
+        } else if (entity == "gt") {
+            out.Append('>');
+        } else if (entity == "quot") {
+            out.Append('"');
+        } else if (entity == "apos") {
+            out.Append('\'');
+        } else if (entity == "nbsp") {
+            out.Append(' ');
+        } else if (entity.StartsWith("#")) {
+            long codepoint = 0;
+            if (entity.StartsWith("#x") || entity.StartsWith("#X")) {
+                entity.Mid(2).ToLong(&codepoint, 16);
+            } else {
+                entity.Mid(1).ToLong(&codepoint, 10);
+            }
+            if (codepoint > 0) {
+                out.Append(static_cast<wxChar>(codepoint));
+            }
+        } else {
+            // Unknown entity, keep as-is
+            out.append("&");
+            out.append(entity);
+            out.append(";");
+        }
+
+        i = semi;
+    }
+
+    return out;
+}
 
 // Application implementation
 bool ImportDialogApp::OnInit() {
@@ -274,10 +331,39 @@ ImportFrame::ImportFrame(const wxString &title, const wxPoint &pos, const wxSize
 
 void ImportFrame::OnPasteButton(wxCommandEvent &event) {
     if (wxTheClipboard->Open()) {
-        if (wxTheClipboard->IsSupported(wxDF_TEXT)) {
-            wxTextDataObject data;
-            wxTheClipboard->GetData(data);
-            m_inputText->SetValue(data.GetText());
+        // Accept any text flavor (ANSI/Unicode). Ignore non-text objects.
+        wxString text;
+        wxTextDataObject data;
+        if (wxTheClipboard->GetData(data)) {
+            text = data.GetText();
+        } else {
+            // Best-effort fallbacks for HTML/RTF-only clipboards.
+            wxDataFormat htmlFormat("text/html");
+            if (wxTheClipboard->IsSupported(htmlFormat)) {
+                wxCustomDataObject htmlData(htmlFormat);
+                if (wxTheClipboard->GetData(htmlData)) {
+                    const void *buf = htmlData.GetData();
+                    size_t len = htmlData.GetSize();
+                    wxString html = wxString::FromUTF8(static_cast<const char *>(buf), len);
+                    text = ExtractPlainTextFromHtml(html);
+                }
+            } else {
+                wxDataFormat rtfFormat("text/rtf");
+                if (wxTheClipboard->IsSupported(rtfFormat)) {
+                    wxCustomDataObject rtfData(rtfFormat);
+                    if (wxTheClipboard->GetData(rtfData)) {
+                        const void *buf = rtfData.GetData();
+                        size_t len = rtfData.GetSize();
+                        wxString rtf = wxString::FromUTF8(static_cast<const char *>(buf), len);
+                        text = ExtractPlainTextFromRtf(rtf);
+                    }
+                }
+            }
+        }
+        if (!text.IsEmpty()) {
+            text.Trim(true);
+            text.Trim(false);
+            m_inputText->SetValue(text);
         }
         wxTheClipboard->Close();
     }
@@ -465,6 +551,105 @@ void ImportFrame::OnCloseButton(wxCommandEvent &event) {
 
 void ImportFrame::OnClose(wxCloseEvent &event) {
     Destroy();
+}
+
+wxString ImportFrame::ExtractPlainTextFromHtml(const wxString &html) {
+    wxString out;
+    out.reserve(html.length());
+
+    bool in_tag = false;
+    wxString tag;
+    for (size_t i = 0; i < html.length(); i++) {
+        wxChar c = html[i];
+        if (c == '<') {
+            in_tag = true;
+            tag.clear();
+            continue;
+        }
+        if (c == '>' && in_tag) {
+            wxString lower = tag.Lower();
+            if (lower.StartsWith("br") || lower.StartsWith("/p") || lower.StartsWith("p") ||
+                lower.StartsWith("/div") || lower.StartsWith("div") ||
+                lower.StartsWith("/pre") || lower.StartsWith("pre")) {
+                out.Append('\n');
+            }
+            in_tag = false;
+            continue;
+        }
+        if (in_tag) {
+            tag.Append(c);
+        } else {
+            out.Append(c);
+        }
+    }
+
+    return DecodeHtmlEntities(out);
+}
+
+wxString ImportFrame::ExtractPlainTextFromRtf(const wxString &rtf) {
+    wxString out;
+    out.reserve(rtf.length());
+
+    bool in_control = false;
+    bool in_hex = false;
+    wxString hex;
+
+    for (size_t i = 0; i < rtf.length(); i++) {
+        wxChar c = rtf[i];
+
+        if (in_hex) {
+            if (c == ';' || c == ' ') {
+                long value = 0;
+                if (hex.ToLong(&value, 16)) {
+                    out.Append(static_cast<wxChar>(value));
+                }
+                hex.clear();
+                in_hex = false;
+            } else {
+                hex.Append(c);
+            }
+            continue;
+        }
+
+        if (in_control) {
+            if (c == '\\') {
+                // Escaped backslash
+                out.Append('\\');
+                in_control = false;
+                continue;
+            }
+            if (c == '\'' && i + 2 < rtf.length()) {
+                // Hex encoded char: \'hh
+                hex.clear();
+                hex.Append(rtf[i + 1]);
+                hex.Append(rtf[i + 2]);
+                i += 2;
+                long value = 0;
+                if (hex.ToLong(&value, 16)) {
+                    out.Append(static_cast<wxChar>(value));
+                }
+                in_control = false;
+                continue;
+            }
+            if (c == ' ' || c == '\n' || c == '\r') {
+                in_control = false;
+            }
+            // Drop control words entirely.
+            continue;
+        }
+
+        if (c == '{' || c == '}') {
+            continue;
+        }
+        if (c == '\\') {
+            in_control = true;
+            continue;
+        }
+
+        out.Append(c);
+    }
+
+    return out;
 }
 
 // C interface
