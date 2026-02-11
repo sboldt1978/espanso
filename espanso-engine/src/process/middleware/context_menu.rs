@@ -265,7 +265,6 @@ impl Middleware for ContextMenuMiddleware<'_> {
                         dispatch(Event::caused_by(event.source_id, EventType::ImportConfig));
                         Event::caused_by(event.source_id, EventType::NOOP)
                     }
-<<<<<<< HEAD
                     CONTEXT_ITEM_EXPLAIN_MATCH => {
                         dispatch(Event::caused_by(
                             event.source_id,

@@ -639,7 +639,6 @@ pub fn try_convert_into_match(
             label: yaml_match.label,
             id: next_id(),
             search_terms: yaml_match.search_terms.unwrap_or_default(),
-            enabled: yaml_match.enabled.unwrap_or(true),
         },
         warnings,
     ))
@@ -895,32 +894,6 @@ mod tests {
                     replace: "world".to_string(),
                     ..Default::default()
                 }),
-                ..Default::default()
-            }
-        );
-    }
-
-    #[test]
-    fn enabled_flag_maps_correctly() {
-        assert_eq!(
-            create_match(
-                r#"
-        trigger: "Hello"
-        replace: "world"
-        enabled: false
-        "#
-            )
-            .unwrap(),
-            Match {
-                cause: MatchCause::Trigger(TriggerCause {
-                    triggers: vec!["Hello".to_string()],
-                    ..Default::default()
-                }),
-                effect: MatchEffect::Text(TextEffect {
-                    replace: "world".to_string(),
-                    ..Default::default()
-                }),
-                enabled: false,
                 ..Default::default()
             }
         );
