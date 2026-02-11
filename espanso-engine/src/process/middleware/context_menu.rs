@@ -181,6 +181,7 @@ impl Middleware for ContextMenuMiddleware {
                         Event::caused_by(event.source_id, EventType::NOOP)
                     }
                     CONTEXT_ITEM_EXPLAIN_MATCH => {
+                        // Show the match explain dialog.
                         dispatch(Event::caused_by(
                             event.source_id,
                             EventType::ShowMatchExplainDialog,
