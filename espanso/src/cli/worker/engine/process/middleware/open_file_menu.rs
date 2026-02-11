@@ -6,7 +6,7 @@ use std::{
     time::SystemTime,
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use espanso_config::config::Config;
 use espanso_engine::process::{
     OpenFileMenuBuildResult, OpenFileMenuItem, OpenFileMenuProvider, OpenFileMenuScope,
