@@ -112,7 +112,7 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
-use base64::{engine::general_purpose::STANDARD, read::DecoderReader, write::EncoderWriter, Engine};
+use base64::{engine::general_purpose::STANDARD, read::DecoderReader, write::EncoderWriter};
 use flate2::{read::GzDecoder, write::GzEncoder, Compression};
 use tar::{Archive, Builder, EntryType};
 use walkdir::WalkDir;
@@ -122,26 +122,21 @@ use crate::{error_eprintln, path::Paths};
 
 /// A reader adapter that filters out all ASCII whitespace characters.
 ///
-/// This is used during import to handle base64 input that may contain
-/// newlines, spaces, or other whitespace for readability. The base64
-/// decoder requires a continuous stream of valid base64 characters.
-///
-/// # Implementation Details
-///
-/// - Uses an 8KB internal buffer for efficient reading
-/// - Filters spaces, tabs, newlines, carriage returns
-/// - Ensures at least one non-whitespace byte is returned per read
-/// - Returns 0 only when the underlying reader is exhausted
+/// This is used in tests to verify whitespace filtering behavior.
+/// Production code uses inline string filtering instead for simplicity.
+#[cfg(test)]
 struct WhitespaceFilteringReader<R> {
     inner: R,
 }
 
+#[cfg(test)]
 impl<R> WhitespaceFilteringReader<R> {
     fn new(inner: R) -> Self {
         Self { inner }
     }
 }
 
+#[cfg(test)]
 impl<R: Read> Read for WhitespaceFilteringReader<R> {
     fn read(&mut self, out: &mut [u8]) -> io::Result<usize> {
         if out.is_empty() {
